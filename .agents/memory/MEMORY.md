@@ -1,0 +1,1 @@
+- [Expo DevTools warning](expo-devtools-warning.md) — a missing GLib library can block optional React Native DevTools while Expo and Metro still serve the app.

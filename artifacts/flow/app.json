@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Flow — Money Journal",
+    "slug": "flow",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/flow-icon.png",
+    "scheme": "flow",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#eaf4fc",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {},
+    "web": {
+      "favicon": "./assets/images/flow-icon.png",
+      "name": "Flow — Money Journal",
+      "shortName": "Flow",
+      "themeColor": "#10366b",
+      "backgroundColor": "#eaf4fc"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

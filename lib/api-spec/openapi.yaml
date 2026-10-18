@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: flow
+    description: Offline-first Flow money journal synchronization
 paths:
   /healthz:
     get:
@@ -24,6 +26,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /flow/state:
+    get:
+      operationId: getFlowState
+      tags: [flow]
+      summary: Get the saved journal snapshot for one installation
+      parameters:
+        - name: installationId
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 20
+            maxLength: 80
+      responses:
+        "200":
+          description: Saved Flow state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlowState"
+        "400":
+          description: Invalid installation identifier
+    put:
+      operationId: putFlowState
+      tags: [flow]
+      summary: Save the complete local-first journal snapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FlowStateInput"
+      responses:
+        "200":
+          description: Snapshot saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlowSyncResult"
+        "400":
+          description: Invalid journal snapshot
 components:
   schemas:
     HealthStatus:
@@ -33,4 +76,61 @@ components:
           type: string
       required:
         - status
+    FlowTrack:
+      type: object
+      required: [id, name, color, createdAt, updatedAt]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 80 }
+        name: { type: string, minLength: 1, maxLength: 80 }
+        color: { type: string, minLength: 1, maxLength: 24 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    FlowEntry:
+      type: object
+      required: [id, trackId, title, amountMinor, kind, date, note, createdAt, updatedAt]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 80 }
+        trackId: { type: string, minLength: 1, maxLength: 80 }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        amountMinor: { type: integer, minimum: 1, maximum: 999999999 }
+        kind: { type: string, enum: [expense, income] }
+        date: { type: string, format: date }
+        note: { type: ["string", "null"], maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    FlowState:
+      type: object
+      required: [installationId, openingBalanceMinor, tracks, entries, updatedAt]
+      properties:
+        installationId: { type: string }
+        openingBalanceMinor: { type: integer, minimum: 0, maximum: 999999999999 }
+        tracks:
+          type: array
+          items: { $ref: "#/components/schemas/FlowTrack" }
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/FlowEntry" }
+        updatedAt: { type: ["string", "null"], format: date-time }
+    FlowStateInput:
+      type: object
+      required: [installationId, openingBalanceMinor, tracks, entries, updatedAt]
+      properties:
+        installationId: { type: string, minLength: 20, maxLength: 80 }
+        openingBalanceMinor: { type: integer, minimum: 0, maximum: 999999999999 }
+        tracks:
+          type: array
+          maxItems: 500
+          items: { $ref: "#/components/schemas/FlowTrack" }
+        entries:
+          type: array
+          maxItems: 50000
+          items: { $ref: "#/components/schemas/FlowEntry" }
+        updatedAt: { type: string, format: date-time }
+    FlowSyncResult:
+      type: object
+      required: [savedAt, tracksCount, entriesCount]
+      properties:
+        savedAt: { type: string, format: date-time }
+        tracksCount: { type: integer, minimum: 0 }
+        entriesCount: { type: integer, minimum: 0 }
 

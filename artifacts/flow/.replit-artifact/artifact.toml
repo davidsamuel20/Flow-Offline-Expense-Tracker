@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "Flow — Money Journal"
+description = "A mobile-first personal money journal for logging date-based spending and income in flexible tracks, totaling selected entries, calculating anywhere, and working offline with PostgreSQL sync when connected."
+version = "1.0.0"
+id = "artifacts/flow"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 25636
+
+[services.development]
+run = "pnpm --filter @workspace/flow run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/flow", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/flow", "run", "serve" ]
+
+[services.env]
+PORT = "25636"
+BASE_PATH = "/"
