@@ -112,13 +112,6 @@ export function Screen({
                 onPress={openCalculator}
                 color={colors.primary}
               />
-              <IconButton
-                label="Add money entry"
-                icon="plus"
-                onPress={() => openEntry()}
-                color={colors.primary}
-                filled
-              />
             </View>
           </View>
 
@@ -311,6 +304,9 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
   const { data, editEntry, toggleSelected } = useFlow();
   const selected = data.selectedIds.includes(entry.id);
   const isIncome = entry.kind === "income";
+  const track = data.tracks.find((t) => t.id === entry.trackId);
+  const tint = trackTint(track, colors);
+
   return (
     <View
       style={[
@@ -319,9 +315,30 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
         selected && { backgroundColor: colors.secondary },
       ]}
     >
+      {/* Checkbox for selecting / totaling */}
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityLabel={`Select ${entry.title} for sum`}
+        accessibilityState={{ checked: selected }}
+        onPress={() => toggleSelected(entry.id)}
+        hitSlop={8}
+        style={({ pressed }) => [styles.selectCheckbox, pressed && styles.pressed]}
+      >
+        <View
+          style={[
+            styles.checkboxCircle,
+            { borderColor: selected ? colors.primary : colors.input },
+            selected && { backgroundColor: colors.primary },
+          ]}
+        >
+          {selected ? <Feather name="check" size={11} color={colors.white} /> : null}
+        </View>
+      </Pressable>
+
+      {/* Main body taps directly to edit entry details */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Edit ${entry.title}`}
+        accessibilityLabel={`Edit ${entry.title}, ${formatMoney(entry.amountMinor)}`}
         onPress={() => editEntry(entry.id)}
         style={({ pressed }) => [styles.entryMain, pressed && styles.pressed]}
       >
@@ -333,36 +350,49 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
         >
           <Feather
             name={isIncome ? "arrow-down-left" : "arrow-up-right"}
-            size={16}
+            size={15}
             color={isIncome ? colors.income : colors.expense}
           />
         </View>
+
         <View style={styles.entryInfo}>
-          <Text numberOfLines={1} style={[styles.entryTitle, { color: colors.foreground }]}>
-            {entry.title}
-          </Text>
-          <Text numberOfLines={1} style={[styles.entryNote, { color: colors.mutedForeground }]}>
-            {entry.note || (isIncome ? "Money in" : "Money out")}
-          </Text>
+          <View style={styles.entryTitleRow}>
+            <Text numberOfLines={1} style={[styles.entryTitle, { color: colors.foreground }]}>
+              {entry.title}
+            </Text>
+            {track ? (
+              <View style={[styles.trackBadge, { backgroundColor: `${tint}18` }]}>
+                <Text style={[styles.trackBadgeText, { color: tint }]}>
+                  {track.name}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          {entry.note ? (
+            <Text numberOfLines={2} style={[styles.entryNote, { color: colors.mutedForeground }]}>
+              {entry.note}
+            </Text>
+          ) : (
+            <Text style={[styles.entryNote, { color: colors.mutedForeground }]}>
+              {isIncome ? "Money in" : "Money out"}
+            </Text>
+          )}
         </View>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Select ${entry.title}, ${formatMoney(entry.amountMinor)}`}
-        accessibilityState={{ selected }}
-        onPress={() => toggleSelected(entry.id)}
-        style={({ pressed }) => [styles.amountTouch, pressed && styles.pressed]}
-      >
-        <Text
-          style={[
-            styles.entryAmount,
-            { color: isIncome ? colors.income : colors.expense },
-            selected && styles.selectedAmount,
-          ]}
-        >
-          {moneyText(entry.amountMinor, entry.kind)}
-        </Text>
-        {selected ? <Feather name="check-circle" size={14} color={colors.primary} /> : null}
+
+        <View style={styles.entryRight}>
+          <Text
+            style={[
+              styles.entryAmount,
+              { color: isIncome ? colors.income : colors.expense },
+            ]}
+          >
+            {moneyText(entry.amountMinor, entry.kind)}
+          </Text>
+          <View style={styles.editActionIndicator}>
+            <Feather name="edit-2" size={11} color={colors.mutedForeground} />
+            <Text style={[styles.editActionText, { color: colors.mutedForeground }]}>Edit</Text>
+          </View>
+        </View>
       </Pressable>
     </View>
   );
@@ -400,59 +430,65 @@ export function signForTotal(value: number) {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   scrollContent: { paddingBottom: 130 },
-  content: { width: "100%", maxWidth: 720, alignSelf: "center", paddingHorizontal: 20 },
+  content: {
+    width: "100%",
+    maxWidth: 520,
+    alignSelf: "center",
+    paddingHorizontal: 16,
+  },
   topbar: {
-    height: 42,
+    height: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 22,
+    marginBottom: 16,
   },
   brand: { flexDirection: "row", alignItems: "center", gap: 9 },
-  flowMark: { width: 31, gap: 3 },
+  flowMark: { width: 28, gap: 3 },
   flowLine: { height: 3, borderRadius: 3 },
-  brandName: { fontSize: 20, fontWeight: "700", letterSpacing: -0.8 },
+  brandName: { fontSize: 21, fontWeight: "800", letterSpacing: -0.8 },
   topActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 12,
   },
   iconButton: {
     width: 38,
     height: 38,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 14,
+    borderRadius: 12,
   },
   syncPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    borderRadius: 20,
+    borderRadius: 16,
     paddingHorizontal: 9,
-    paddingVertical: 7,
+    paddingVertical: 6,
   },
   syncLabel: { fontSize: 11, fontWeight: "600" },
   eyebrow: {
     textTransform: "uppercase",
-    letterSpacing: 1.6,
+    letterSpacing: 1.4,
     fontSize: 10,
     fontWeight: "700",
-    marginBottom: 7,
+    marginBottom: 4,
   },
-  pageTitle: { fontSize: 29, fontWeight: "700", letterSpacing: -0.8, lineHeight: 35 },
-  subtitle: { fontSize: 14, lineHeight: 21, marginTop: 6 },
-  pageContent: { marginTop: 22, gap: 20 },
+  pageTitle: { fontSize: 25, fontWeight: "800", letterSpacing: -0.6, lineHeight: 31 },
+  subtitle: { fontSize: 13, lineHeight: 19, marginTop: 4 },
+  pageContent: { marginTop: 16, gap: 16 },
   selectionBar: {
     position: "absolute",
     left: 16,
     right: 16,
     alignSelf: "center",
-    maxWidth: 690,
-    minHeight: 66,
-    borderRadius: 22,
+    maxWidth: 500,
+    minHeight: 62,
+    borderRadius: 18,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
@@ -473,37 +509,98 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  sectionTitle: { fontSize: 17, fontWeight: "700", letterSpacing: -0.3 },
-  entryGroups: { gap: 9 },
+  sectionTitle: { fontSize: 16, fontWeight: "700", letterSpacing: -0.3 },
+  entryGroups: { gap: 12 },
   dayHeading: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "baseline",
     marginTop: 4,
-    marginBottom: 8,
+    marginBottom: 6,
+    paddingHorizontal: 2,
   },
   dayTitle: { fontSize: 13, fontWeight: "700" },
-  dayTotal: { fontSize: 11, fontWeight: "500" },
-  entryCard: { borderRadius: 20, paddingHorizontal: 13 },
+  dayTotal: { fontSize: 11, fontWeight: "600" },
+  entryCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#dbe5ef",
+    overflow: "hidden",
+    shadowColor: "#0b2244",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
   entryRow: {
-    minHeight: 68,
+    minHeight: 66,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
   },
-  entryMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 11, minWidth: 0 },
-  entryGlyph: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  selectCheckbox: {
+    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  entryMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 11,
+    minWidth: 0,
+  },
+  entryGlyph: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   entryInfo: { flex: 1, minWidth: 0 },
-  entryTitle: { fontSize: 14, fontWeight: "600" },
-  entryNote: { fontSize: 11, marginTop: 3 },
+  entryTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  entryTitle: { fontSize: 14, fontWeight: "700", letterSpacing: -0.2 },
+  trackBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  trackBadgeText: { fontSize: 10, fontWeight: "700" },
+  entryNote: { fontSize: 12, lineHeight: 16, marginTop: 2 },
+  entryRight: {
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  entryAmount: { fontSize: 14, fontWeight: "700" },
+  editActionIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 2,
+  },
+  editActionText: { fontSize: 10, fontWeight: "600" },
   amountTouch: { minHeight: 44, paddingLeft: 6, flexDirection: "row", alignItems: "center", gap: 4 },
-  entryAmount: { fontSize: 13, fontWeight: "700" },
   selectedAmount: { textDecorationLine: "underline" },
-  emptyState: { alignItems: "center", padding: 24, borderRadius: 22 },
+  emptyState: { alignItems: "center", padding: 24, borderRadius: 20, borderWidth: 1, borderColor: "#dbe5ef" },
   emptyIcon: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   emptyTitle: { fontSize: 15, fontWeight: "700", marginTop: 12 },
-  emptyText: { maxWidth: 230, textAlign: "center", fontSize: 12, lineHeight: 18, marginTop: 4 },
-  statTile: { flex: 1, minWidth: 138, borderRadius: 18, padding: 14 },
+  emptyText: { maxWidth: 240, textAlign: "center", fontSize: 12, lineHeight: 18, marginTop: 4 },
+  statTile: { flex: 1, minWidth: 138, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#dbe5ef" },
   statLabelRow: { flexDirection: "row", gap: 7, alignItems: "center" },
   statLabel: { fontSize: 11, fontWeight: "600" },
   statValue: { fontSize: 17, fontWeight: "700", marginTop: 8 },

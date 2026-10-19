@@ -50,20 +50,24 @@ function AuthenticatedApp() {
     }
   }, [getToken, isLoaded]);
 
-  return (
-    <ClerkLoaded>
-      <QueryClientProvider client={queryClient}>
-        <FlowProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <RootLayoutNav />
-              <FlowOverlays />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </FlowProvider>
-      </QueryClientProvider>
-    </ClerkLoaded>
+  const content = (
+    <QueryClientProvider client={queryClient}>
+      <FlowProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <KeyboardProvider>
+            <RootLayoutNav />
+            <FlowOverlays />
+          </KeyboardProvider>
+        </GestureHandlerRootView>
+      </FlowProvider>
+    </QueryClientProvider>
   );
+
+  if (!clerkPublishableKey) {
+    return content;
+  }
+
+  return <ClerkLoaded>{content}</ClerkLoaded>;
 }
 
 export default function RootLayout() {
@@ -73,6 +77,8 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+
+  console.log('[DEBUG] RootLayout render:', { fontsLoaded, fontError: fontError?.message, clerkPublishableKey });
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -86,7 +92,22 @@ export default function RootLayout() {
       typeof navigator !== 'undefined' &&
       'serviceWorker' in navigator
     ) {
-      void navigator.serviceWorker.register('/service-worker.js').catch(() => undefined);
+      if (__DEV__) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister();
+          }
+        });
+        if ('caches' in window) {
+          caches.keys().then((names) => {
+            for (const name of names) {
+              caches.delete(name);
+            }
+          });
+        }
+      } else {
+        void navigator.serviceWorker.register('/service-worker.js').catch(() => undefined);
+      }
     }
   }, []);
 

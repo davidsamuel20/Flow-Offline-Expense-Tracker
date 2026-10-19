@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -34,6 +35,13 @@ export default function TrackDetailScreen() {
   }
 
   const remove = () => {
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm(`Remove ${track.name}? This also removes every journal line inside the track.`)) {
+        deleteTrack(track.id);
+        router.replace("/tracks");
+      }
+      return;
+    }
     Alert.alert(
       `Remove ${track.name}?`,
       "This also removes every journal line inside the track.",

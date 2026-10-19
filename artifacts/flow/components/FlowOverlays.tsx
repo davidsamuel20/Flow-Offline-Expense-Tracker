@@ -106,6 +106,13 @@ function EntrySheet({ visible }: { visible: boolean }) {
 
   const confirmDelete = () => {
     if (!entrySheet.entryId) return;
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm("Remove this entry? This line will be removed from your journal.")) {
+        deleteEntry(entrySheet.entryId);
+        closeEntry();
+      }
+      return;
+    }
     Alert.alert("Remove this entry?", "This line will be removed from your journal.", [
       { text: "Keep it", style: "cancel" },
       {

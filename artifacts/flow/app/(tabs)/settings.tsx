@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useClerk, useUser } from "@clerk/expo";
 import { useRouter } from "expo-router";
 import { Screen } from "@/components/FlowUI";
@@ -28,6 +28,10 @@ export default function SettingsScreen() {
   const saveOpeningBalance = () => {
     const parsed = Number(openingAmount.replace(/,/g, ""));
     if (!Number.isFinite(parsed) || parsed < 0) {
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") window.alert("Starting balance must be zero or more.");
+        return;
+      }
       Alert.alert("Check the amount", "Starting balance must be zero or more.");
       return;
     }
@@ -37,6 +41,12 @@ export default function SettingsScreen() {
   };
 
   const clearExamples = () => {
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm("Clear example entries? Your tracks will remain, but all current journal lines will be removed.")) {
+        clearSampleData();
+      }
+      return;
+    }
     Alert.alert("Clear example entries?", "Your tracks will remain, but all current journal lines will be removed.", [
       { text: "Cancel", style: "cancel" },
       { text: "Clear entries", style: "destructive", onPress: clearSampleData },

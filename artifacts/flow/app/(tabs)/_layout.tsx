@@ -62,14 +62,38 @@ function ClassicTabLayout() {
         headerShown: false,
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: isIOS ? 'transparent' : colors.background,
-          borderTopWidth: isWeb ? 1 : 0,
+          backgroundColor: isIOS ? 'transparent' : colors.card,
+          borderTopWidth: 1,
           borderTopColor: colors.border,
-          elevation: 0,
-          paddingTop: 7,
+          elevation: 4,
+          shadowColor: colors.primary,
+          shadowOpacity: 0.04,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: -2 },
           ...(isWeb
-            ? { height: 84 }
-            : { height: 60 + insets.bottom, paddingBottom: insets.bottom }),
+            ? {
+                height: 70,
+                paddingBottom: 8,
+                paddingTop: 8,
+                maxWidth: 520,
+                width: '100%',
+                left: 0,
+                right: 0,
+                marginHorizontal: 'auto' as const,
+                borderLeftWidth: 1,
+                borderRightWidth: 1,
+                borderLeftColor: colors.border,
+                borderRightColor: colors.border,
+              }
+            : {
+                height: 60 + insets.bottom,
+                paddingBottom: insets.bottom,
+                paddingTop: 6,
+              }),
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
         },
         tabBarBackground: () =>
           isIOS ? (
@@ -82,7 +106,7 @@ function ClassicTabLayout() {
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: colors.background },
+                { backgroundColor: colors.card },
               ]}
             />
           ) : null,
@@ -141,7 +165,10 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded: clerkIsLoaded, isSignedIn: clerkIsSignedIn } = useAuth();
+  const hasClerk = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const isLoaded = !hasClerk || clerkIsLoaded;
+  const isSignedIn = !hasClerk || clerkIsSignedIn;
   const colors = useColors();
   if (!isLoaded) {
     return <View style={{ flex: 1, backgroundColor: colors.background }} />;

@@ -11,10 +11,18 @@
       "backgroundColor": "#eaf4fc",
       "resizeMode": "contain"
     },
+    "owner": "nalu-app",
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.naluapp.flow"
     },
-    "android": {},
+    "android": {
+      "package": "com.naluapp.flow",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/flow-icon.png",
+        "backgroundColor": "#10366b"
+      }
+    },
     "web": {
       "favicon": "./assets/images/flow-icon.png",
       "name": "Flow — Money Journal",

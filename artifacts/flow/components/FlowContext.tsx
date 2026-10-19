@@ -223,7 +223,10 @@ function mergeAccountState(local: LocalFlowData, remote: FlowState) {
 }
 
 export function FlowProvider({ children }: { children: React.ReactNode }) {
-  const { isLoaded: authLoaded, userId } = useAuth();
+  const { isLoaded: clerkAuthLoaded, userId: rawUserId } = useAuth();
+  const hasClerk = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const authLoaded = !hasClerk || clerkAuthLoaded;
+  const userId = hasClerk ? rawUserId : null;
   const [data, setData] = useState<LocalFlowData>(() => createStarterState());
   const storageKey = userId ? getAccountStorageKey(userId) : STORAGE_KEY;
   const [hydratedStorageKey, setHydratedStorageKey] = useState<string | null>(null);
@@ -495,7 +498,10 @@ export function useFlow() {
 }
 
 function FlowSyncBridge({ syncRequests }: { syncRequests: number }) {
-  const { isLoaded: authLoaded, userId } = useAuth();
+  const { isLoaded: clerkAuthLoaded, userId: rawUserId } = useAuth();
+  const hasClerk = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const authLoaded = !hasClerk || clerkAuthLoaded;
+  const userId = hasClerk ? rawUserId : null;
   const {
     data,
     hydrated,
