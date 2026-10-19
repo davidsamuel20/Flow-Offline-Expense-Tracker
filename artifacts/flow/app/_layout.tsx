@@ -1,13 +1,15 @@
 import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ClerkLoaded, ClerkProvider, useAuth } from '@clerk/expo';
+import { tokenCache } from '@clerk/expo/token-cache';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FlowProvider } from '@/components/FlowContext';
 import { FlowOverlays } from '@/components/FlowOverlays';
-import { setBaseUrl } from '@workspace/api-client-react';
+import { setAuthTokenGetter, setBaseUrl } from '@workspace/api-client-react';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -22,6 +24,8 @@ const apiDomain =
   process.env.EXPO_PUBLIC_API_BASE_URL ??
   (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : null);
 setBaseUrl(Platform.OS === 'web' ? null : apiDomain);
+const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -31,8 +35,34 @@ const queryClient = new QueryClient();
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
+  );
+}
+
+function AuthenticatedApp() {
+  const { getToken, isLoaded } = useAuth();
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' && isLoaded) {
+      setAuthTokenGetter(() => getToken());
+    }
+  }, [getToken, isLoaded]);
+
+  return (
+    <ClerkLoaded>
+      <QueryClientProvider client={queryClient}>
+        <FlowProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <KeyboardProvider>
+              <RootLayoutNav />
+              <FlowOverlays />
+            </KeyboardProvider>
+          </GestureHandlerRootView>
+        </FlowProvider>
+      </QueryClientProvider>
+    </ClerkLoaded>
   );
 }
 
@@ -65,16 +95,13 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <FlowProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <RootLayoutNav />
-                <FlowOverlays />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          </FlowProvider>
-        </QueryClientProvider>
+        <ClerkProvider
+          publishableKey={clerkPublishableKey}
+          tokenCache={tokenCache}
+          proxyUrl={clerkProxyUrl}
+        >
+          <AuthenticatedApp />
+        </ClerkProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

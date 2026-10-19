@@ -10,6 +10,7 @@ import {
   type FlowTrack,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/expo";
 import React, {
   createContext,
   useCallback,
@@ -22,6 +23,11 @@ import React, {
 import { AppState, Platform } from "react-native";
 
 const STORAGE_KEY = "flow-local-journal-v1";
+const ACCOUNT_OWNER_KEY = `${STORAGE_KEY}:owner`;
+
+function getAccountStorageKey(userId: string) {
+  return `${STORAGE_KEY}:account:${userId}`;
+}
 
 type SyncStatus = "local" | "syncing" | "synced" | "offline";
 
@@ -29,6 +35,7 @@ type LocalFlowData = FlowState & {
   lastSyncedAt: string | null;
   sampleData: boolean;
   selectedIds: string[];
+  openingBalanceUpdatedAt: string | null;
 };
 
 type EntryDraft = Omit<FlowEntry, "id" | "createdAt" | "updatedAt">;
@@ -65,6 +72,7 @@ type FlowContextValue = {
   requestSync: () => void;
   setSyncStatus: (status: SyncStatus) => void;
   applyRemote: (remote: FlowState) => void;
+  applyMerged: (merged: LocalFlowData) => void;
   markSynced: (sentUpdatedAt: string, savedAt: string) => void;
 };
 
@@ -120,12 +128,106 @@ function createStarterState(): LocalFlowData {
     lastSyncedAt: null,
     sampleData: true,
     selectedIds: [],
+    openingBalanceUpdatedAt: null,
+  };
+}
+
+function parseLocalState(raw: string): LocalFlowData | null {
+  try {
+    const saved = JSON.parse(raw) as Partial<LocalFlowData>;
+    if (
+      typeof saved.installationId !== "string" ||
+      !Array.isArray(saved.tracks) ||
+      !Array.isArray(saved.entries)
+    ) {
+      return null;
+    }
+    return {
+      ...createStarterState(),
+      ...saved,
+      selectedIds: [],
+      sampleData: saved.sampleData === true,
+      openingBalanceUpdatedAt:
+        saved.openingBalanceUpdatedAt ??
+        (saved.openingBalanceMinor ? saved.updatedAt ?? null : null),
+    } as LocalFlowData;
+  } catch {
+    return null;
+  }
+}
+
+function mergeAccountState(local: LocalFlowData, remote: FlowState) {
+  const remoteHasContent =
+    !!remote.updatedAt ||
+    remote.tracks.length > 0 ||
+    remote.entries.length > 0 ||
+    remote.openingBalanceMinor > 0;
+  if (local.sampleData && remoteHasContent) {
+    return {
+      data: {
+        ...local,
+        ...remote,
+        installationId: local.installationId,
+        lastSyncedAt: remote.updatedAt,
+        sampleData: false,
+        selectedIds: [],
+      },
+      hasLocalChanges: false,
+    };
+  }
+
+  const mergeRecords = <T extends { id: string; updatedAt: string }>(
+    localRecords: T[],
+    remoteRecords: T[],
+  ) => {
+    const merged = new Map(remoteRecords.map((record) => [record.id, record]));
+    let hasLocalContribution = false;
+    for (const record of localRecords) {
+      const remoteRecord = merged.get(record.id);
+      if (!remoteRecord || Date.parse(record.updatedAt) > Date.parse(remoteRecord.updatedAt)) {
+        merged.set(record.id, record);
+        hasLocalContribution = true;
+      }
+    }
+    return { records: [...merged.values()], hasLocalContribution };
+  };
+
+  const tracks = mergeRecords(local.tracks, remote.tracks);
+  const entries = mergeRecords(local.entries, remote.entries);
+  const localBalanceIsNewer =
+    !!local.openingBalanceUpdatedAt &&
+    (!remote.updatedAt || Date.parse(local.openingBalanceUpdatedAt) > Date.parse(remote.updatedAt));
+  const hasLocalChanges =
+    tracks.hasLocalContribution || entries.hasLocalContribution || localBalanceIsNewer;
+  const now = hasLocalChanges ? new Date().toISOString() : remote.updatedAt ?? local.updatedAt;
+
+  return {
+    data: {
+      ...local,
+      installationId: local.installationId,
+      openingBalanceMinor: localBalanceIsNewer
+        ? local.openingBalanceMinor
+        : remote.openingBalanceMinor,
+      openingBalanceUpdatedAt: localBalanceIsNewer
+        ? local.openingBalanceUpdatedAt
+        : remote.updatedAt,
+      tracks: tracks.records,
+      entries: entries.records,
+      updatedAt: now,
+      lastSyncedAt: remote.updatedAt,
+      selectedIds: [],
+      sampleData: local.sampleData && !remoteHasContent,
+    },
+    hasLocalChanges,
   };
 }
 
 export function FlowProvider({ children }: { children: React.ReactNode }) {
+  const { isLoaded: authLoaded, userId } = useAuth();
   const [data, setData] = useState<LocalFlowData>(() => createStarterState());
-  const [hydrated, setHydrated] = useState(false);
+  const storageKey = userId ? getAccountStorageKey(userId) : STORAGE_KEY;
+  const [hydratedStorageKey, setHydratedStorageKey] = useState<string | null>(null);
+  const hydrated = authLoaded && hydratedStorageKey === storageKey;
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("local");
   const [entrySheet, setEntrySheet] = useState<EntrySheetState>({ visible: false });
   const [trackSheetVisible, setTrackSheetVisible] = useState(false);
@@ -133,48 +235,57 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
   const [syncRequests, setSyncRequests] = useState(0);
 
   useEffect(() => {
+    if (!authLoaded) return;
     let active = true;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
-        if (!active) return;
-        if (raw) {
-          const saved = JSON.parse(raw) as Partial<LocalFlowData>;
-          if (
-            typeof saved.installationId === "string" &&
-            Array.isArray(saved.tracks) &&
-            Array.isArray(saved.entries)
-          ) {
-            setData({
-              ...createStarterState(),
-              ...saved,
-              selectedIds: [],
-              sampleData: saved.sampleData === true,
-            });
-          } else {
-            setData(createStarterState());
+    setHydratedStorageKey(null);
+    setData(createStarterState());
+    setSyncStatus("local");
+    const load = async () => {
+      try {
+        let raw = await AsyncStorage.getItem(storageKey);
+        let claimedLegacyData = false;
+        if (!raw && userId) {
+          const currentOwner = await AsyncStorage.getItem(ACCOUNT_OWNER_KEY);
+          if (!currentOwner || currentOwner === userId) {
+            raw = await AsyncStorage.getItem(STORAGE_KEY);
+            claimedLegacyData = !!raw;
+            if (claimedLegacyData) {
+              await AsyncStorage.setItem(ACCOUNT_OWNER_KEY, userId);
+            }
           }
-        } else {
-          setData(createStarterState());
         }
-        setHydrated(true);
-      })
-      .catch(() => {
+        if (!active) return;
+        const saved = raw ? parseLocalState(raw) : null;
+        setData(
+          saved
+            ? {
+                ...saved,
+                lastSyncedAt: claimedLegacyData ? null : saved.lastSyncedAt,
+                selectedIds: [],
+              }
+            : createStarterState(),
+        );
+        setHydratedStorageKey(storageKey);
+      } catch {
         if (!active) return;
         setSyncStatus("offline");
-        setHydrated(true);
-      });
+        setData(createStarterState());
+        setHydratedStorageKey(storageKey);
+      }
+    };
+    void load();
     return () => {
       active = false;
     };
-  }, []);
+  }, [authLoaded, storageKey, userId]);
 
   useEffect(() => {
     if (!hydrated) return;
     const { selectedIds: _selectedIds, ...persisted } = data;
-    void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persisted)).catch(() =>
+    void AsyncStorage.setItem(storageKey, JSON.stringify(persisted)).catch(() =>
       setSyncStatus("offline"),
     );
-  }, [data, hydrated]);
+  }, [data, hydrated, storageKey]);
 
   const addEntry = useCallback((draft: EntryDraft) => {
     const now = new Date().toISOString();
@@ -232,7 +343,12 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
 
   const setOpeningBalance = useCallback((amountMinor: number) => {
     const now = new Date().toISOString();
-    setData((current) => ({ ...current, openingBalanceMinor: amountMinor, updatedAt: now }));
+    setData((current) => ({
+      ...current,
+      openingBalanceMinor: amountMinor,
+      openingBalanceUpdatedAt: now,
+      updatedAt: now,
+    }));
   }, []);
 
   const clearSampleData = useCallback(() => {
@@ -286,9 +402,14 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       entries: remote.entries,
       updatedAt: remote.updatedAt,
       lastSyncedAt: remote.updatedAt,
+      openingBalanceUpdatedAt: remote.updatedAt,
       selectedIds: [],
       sampleData: false,
     }));
+  }, []);
+
+  const applyMerged = useCallback((merged: LocalFlowData) => {
+    setData({ ...merged, selectedIds: [] });
   }, []);
 
   const markSynced = useCallback((sentUpdatedAt: string, savedAt: string) => {
@@ -326,6 +447,7 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       requestSync,
       setSyncStatus,
       applyRemote,
+      applyMerged,
       markSynced,
     }),
     [
@@ -353,6 +475,7 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       closeCalculator,
       requestSync,
       applyRemote,
+      applyMerged,
       markSynced,
     ],
   );
@@ -372,22 +495,25 @@ export function useFlow() {
 }
 
 function FlowSyncBridge({ syncRequests }: { syncRequests: number }) {
+  const { isLoaded: authLoaded, userId } = useAuth();
   const {
     data,
     hydrated,
     setSyncStatus,
     applyRemote,
+    applyMerged,
     markSynced,
     requestSync,
   } = useFlow();
   const queryClient = useQueryClient();
   const attempted = useRef("");
+  const syncInstallationId = userId ?? data.installationId;
   const query = useGetFlowState(
-    { installationId: data.installationId },
+    { installationId: syncInstallationId },
     {
       query: {
-        queryKey: getGetFlowStateQueryKey({ installationId: data.installationId }),
-        enabled: hydrated && data.installationId.length >= 20,
+        queryKey: getGetFlowStateQueryKey({ installationId: syncInstallationId }),
+        enabled: hydrated && authLoaded && !!userId,
         retry: false,
         refetchOnWindowFocus: true,
       },
@@ -396,10 +522,15 @@ function FlowSyncBridge({ syncRequests }: { syncRequests: number }) {
   const saveMutation = usePutFlowState();
 
   useEffect(() => {
+    attempted.current = "";
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
     const retry = () => {
       requestSync();
       void queryClient.invalidateQueries({
-        queryKey: getGetFlowStateQueryKey({ installationId: data.installationId }),
+        queryKey: getGetFlowStateQueryKey({ installationId: userId }),
       });
     };
     if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -410,10 +541,15 @@ function FlowSyncBridge({ syncRequests }: { syncRequests: number }) {
       if (state === "active") retry();
     });
     return () => subscription.remove();
-  }, [data.installationId, queryClient, requestSync]);
+  }, [userId, queryClient, requestSync]);
 
   useEffect(() => {
-    if (!hydrated || query.isPending || saveMutation.isPending) return;
+    if (!hydrated || !authLoaded) return;
+    if (!userId) {
+      setSyncStatus("local");
+      return;
+    }
+    if (query.isPending || saveMutation.isPending) return;
     if (query.isError) {
       setSyncStatus("offline");
       return;
@@ -423,6 +559,29 @@ function FlowSyncBridge({ syncRequests }: { syncRequests: number }) {
     const hasLocalChanges =
       !!data.updatedAt &&
       (!data.lastSyncedAt || Date.parse(data.updatedAt) > Date.parse(data.lastSyncedAt));
+    const remoteAt = query.data.updatedAt;
+    const remoteHasAdvanced =
+      !!remoteAt &&
+      (!data.lastSyncedAt || Date.parse(remoteAt) > Date.parse(data.lastSyncedAt));
+
+    if (remoteHasAdvanced) {
+      if (hasLocalChanges) {
+        const merged = mergeAccountState(data, query.data);
+        if (merged.hasLocalChanges) {
+          applyMerged(merged.data);
+          setSyncStatus("syncing");
+        } else {
+          applyRemote(query.data);
+          setSyncStatus("synced");
+        }
+      } else if (!data.updatedAt || Date.parse(remoteAt) > Date.parse(data.updatedAt)) {
+        applyRemote(query.data);
+        setSyncStatus("synced");
+      } else {
+        setSyncStatus("synced");
+      }
+      return;
+    }
 
     if (hasLocalChanges) {
       const attemptKey = `${data.updatedAt}:${syncRequests}`;
@@ -431,7 +590,7 @@ function FlowSyncBridge({ syncRequests }: { syncRequests: number }) {
       setSyncStatus("syncing");
       const sentUpdatedAt = data.updatedAt ?? new Date().toISOString();
       const snapshot: FlowStateInput = {
-        installationId: data.installationId,
+        installationId: userId,
         openingBalanceMinor: data.openingBalanceMinor,
         tracks: data.tracks,
         entries: data.entries,
@@ -450,7 +609,6 @@ function FlowSyncBridge({ syncRequests }: { syncRequests: number }) {
       return;
     }
 
-    const remoteAt = query.data.updatedAt;
     const localAt = data.updatedAt;
     if (
       remoteAt &&
@@ -463,6 +621,8 @@ function FlowSyncBridge({ syncRequests }: { syncRequests: number }) {
     setSyncStatus(data.lastSyncedAt ? "synced" : "local");
   }, [
     data,
+    authLoaded,
+    userId,
     hydrated,
     query.data,
     query.isError,
@@ -471,6 +631,7 @@ function FlowSyncBridge({ syncRequests }: { syncRequests: number }) {
     syncRequests,
     setSyncStatus,
     applyRemote,
+    applyMerged,
     markSynced,
   ]);
 

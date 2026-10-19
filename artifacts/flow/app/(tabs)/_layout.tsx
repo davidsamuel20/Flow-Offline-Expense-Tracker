@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { Redirect } from 'expo-router';
+import { useAuth } from '@clerk/expo';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
@@ -139,6 +141,14 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const colors = useColors();
+  if (!isLoaded) {
+    return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  }
+  if (!isSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
   if (isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }

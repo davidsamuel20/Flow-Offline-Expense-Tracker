@@ -1,5 +1,6 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { Router, type IRouter } from "express";
+import { getAuth } from "@clerk/express";
 import {
   GetFlowStateQueryParams,
   GetFlowStateResponse,
@@ -16,6 +17,12 @@ import {
 const router: IRouter = Router();
 
 router.get("/flow/state", async (req, res) => {
+  const userId = getAuth(req).userId;
+  if (!userId) {
+    res.status(401).json({ error: "Sign in to access your Flow journal." });
+    return;
+  }
+
   const parsed = GetFlowStateQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: "A valid installation identifier is required." });
@@ -23,6 +30,10 @@ router.get("/flow/state", async (req, res) => {
   }
 
   const { installationId } = parsed.data;
+  if (installationId !== userId) {
+    res.status(403).json({ error: "This journal belongs to a different account." });
+    return;
+  }
   try {
     const [installation] = await db
       .select()
@@ -85,6 +96,12 @@ router.get("/flow/state", async (req, res) => {
 });
 
 router.put("/flow/state", async (req, res) => {
+  const userId = getAuth(req).userId;
+  if (!userId) {
+    res.status(401).json({ error: "Sign in to access your Flow journal." });
+    return;
+  }
+
   const parsed = PutFlowStateBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "The journal data is not valid." });
@@ -92,6 +109,10 @@ router.put("/flow/state", async (req, res) => {
   }
 
   const state = parsed.data;
+  if (state.installationId !== userId) {
+    res.status(403).json({ error: "This journal belongs to a different account." });
+    return;
+  }
   const trackIds = new Set(state.tracks.map((track) => track.id));
   if (state.entries.some((entry) => !trackIds.has(entry.trackId))) {
     res.status(400).json({ error: "Every entry must belong to an existing track." });

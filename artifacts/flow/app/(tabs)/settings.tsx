@@ -1,12 +1,17 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useClerk, useUser } from "@clerk/expo";
+import { useRouter } from "expo-router";
 import { Screen } from "@/components/FlowUI";
 import { useFlow } from "@/components/FlowContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function SettingsScreen() {
   const colors = useColors();
+  const { signOut } = useClerk();
+  const { user } = useUser();
+  const router = useRouter();
   const {
     data,
     syncStatus,
@@ -88,6 +93,33 @@ export default function SettingsScreen() {
             {saved ? "Balance saved" : "Save balance"}
           </Text>
           <Feather name={saved ? "check" : "arrow-right"} size={16} color={colors.white} />
+        </Pressable>
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <View style={styles.cardHeading}>
+          <View style={[styles.cardIcon, { backgroundColor: colors.secondary }]}>
+            <Feather name="user" size={17} color={colors.primary} />
+          </View>
+          <View style={styles.cardCopy}>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>Flow account</Text>
+            <Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>
+              {user?.primaryEmailAddress?.emailAddress ?? "Signed in"}
+            </Text>
+          </View>
+        </View>
+        <Text style={[styles.syncExplanation, { color: colors.mutedForeground }]}>
+          Your journal is tied to this account, so you can open it on another device.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            void signOut().then(() => router.replace("/(auth)/sign-in"));
+          }}
+          style={[styles.outlineButton, { borderColor: colors.border }]}
+        >
+          <Feather name="log-out" size={14} color={colors.expense} />
+          <Text style={[styles.outlineText, { color: colors.expense }]}>Sign out</Text>
         </Pressable>
       </View>
 

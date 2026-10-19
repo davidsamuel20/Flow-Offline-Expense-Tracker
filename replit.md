@@ -25,13 +25,15 @@ A mobile-first personal money journal for recording dated spending and money rec
 - `artifacts/flow` — Expo app for web and native
 - `artifacts/api-server` — REST endpoints for Flow state sync
 - `lib/api-spec/openapi.yaml` — source of truth for the typed API client and request validation
-- `lib/db/src/schema/flow.ts` — PostgreSQL tables for installations, tracks, and entries
+- `lib/db/src/schema/flow.ts` — PostgreSQL tables for account journals, tracks, and entries
 
 ## Architecture decisions
 
 - Local-first ledger: save every edit on-device immediately; treat PostgreSQL as the online sync target.
 - Keep amounts as integer paise so sums and balance calculations avoid floating-point rounding.
-- Use a single install-specific sync identity; the first release is a personal journal, not a shared multi-user workspace.
+- Clerk user IDs scope online journal access; API routes must verify the authenticated user matches the requested journal.
+- Keep a separate local journal per signed-in account and preserve an unclaimed anonymous journal for first-account migration.
+- Merge new records from other devices when local edits are pending; do not let demo rows overwrite an existing account journal.
 
 ## Product
 
@@ -45,6 +47,7 @@ A mobile-first personal money journal for recording dated spending and money rec
 
 - The user wants a phone-first experience that can be packaged as a native app after the browser version is complete.
 - The user wants the app to stay useful offline and sync through PostgreSQL when online.
+- The user wants one signed-in Flow account to provide the same journal across devices.
 - The user's expense/income labels should make the balance direction obvious; their example is Milk as money out and Mutual Funds as money in.
 
 ## Gotchas

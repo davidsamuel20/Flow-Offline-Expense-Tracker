@@ -22,7 +22,11 @@
       "themeColor": "#10366b",
       "backgroundColor": "#eaf4fc"
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser"
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
