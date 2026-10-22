@@ -51,7 +51,7 @@ jobs:
         run: npm install --global eas-cli
 
       - name: 📥 Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: 📱 Publish OTA Update to Expo
         working-directory: artifacts/flow
