@@ -259,7 +259,54 @@ function EntrySheet({ visible }: { visible: boolean }) {
 
             <View style={styles.twoColumns}>
               <View style={styles.flexField}>
-                <FieldLabel label="DATE" />
+                <View style={styles.dateLabelRow}>
+                  <FieldLabel label="DATE" />
+                  <View style={styles.quickDateChips}>
+                    <Pressable
+                      onPress={() => setDate(localDateString())}
+                      style={[
+                        styles.quickChip,
+                        date === localDateString() && { backgroundColor: colors.primary },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.quickChipText,
+                          { color: date === localDateString() ? colors.white : colors.mutedForeground },
+                        ]}
+                      >
+                        Today
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        const y = new Date();
+                        y.setDate(y.getDate() - 1);
+                        setDate(localDateString(y));
+                      }}
+                      style={[
+                        styles.quickChip,
+                        date === localDateString(new Date(Date.now() - 86400000)) && {
+                          backgroundColor: colors.primary,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.quickChipText,
+                          {
+                            color:
+                              date === localDateString(new Date(Date.now() - 86400000))
+                                ? colors.white
+                                : colors.mutedForeground,
+                          },
+                        ]}
+                      >
+                        Yesterday
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
                 <TextInput
                   accessibilityLabel="Entry date"
                   value={date}
@@ -317,17 +364,25 @@ function EntrySheet({ visible }: { visible: boolean }) {
 
 function TrackSheet({ visible }: { visible: boolean }) {
   const colors = useColors();
-  const { addTrack, closeTrackSheet } = useFlow();
+  const { data, editingTrackId, addTrack, updateTrack, closeTrackSheet } = useFlow();
   const [name, setName] = useState("");
   const [color, setColor] = useState("sky");
   const [error, setError] = useState("");
+
+  const editingTrack = editingTrackId ? data.tracks.find((t) => t.id === editingTrackId) : null;
+
   useEffect(() => {
     if (visible) {
-      setName("");
-      setColor("sky");
+      if (editingTrack) {
+        setName(editingTrack.name);
+        setColor(editingTrack.color);
+      } else {
+        setName("");
+        setColor("sky");
+      }
       setError("");
     }
-  }, [visible]);
+  }, [visible, editingTrack]);
 
   const save = () => {
     const trimmed = name.trim();
@@ -335,7 +390,11 @@ function TrackSheet({ visible }: { visible: boolean }) {
       setError("Give your track a name.");
       return;
     }
-    addTrack(trimmed, color);
+    if (editingTrackId) {
+      updateTrack(editingTrackId, trimmed, color);
+    } else {
+      addTrack(trimmed, color);
+    }
     closeTrackSheet();
   };
 
@@ -353,8 +412,12 @@ function TrackSheet({ visible }: { visible: boolean }) {
           <View style={[styles.handle, { backgroundColor: colors.handle }]} />
           <View style={styles.sheetHeader}>
             <View>
-              <Text style={[styles.sheetEyebrow, { color: colors.mutedForeground }]}>NEW SECTION</Text>
-              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Create a track</Text>
+              <Text style={[styles.sheetEyebrow, { color: colors.mutedForeground }]}>
+                {editingTrackId ? "EDIT SECTION" : "NEW SECTION"}
+              </Text>
+              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
+                {editingTrackId ? "Update track" : "Create a track"}
+              </Text>
             </View>
             <Pressable onPress={closeTrackSheet} accessibilityLabel="Close track form">
               <Feather name="x" size={22} color={colors.mutedForeground} />
@@ -400,7 +463,9 @@ function TrackSheet({ visible }: { visible: boolean }) {
             onPress={save}
             style={[styles.primaryButton, { backgroundColor: colors.primary }]}
           >
-            <Text style={[styles.primaryButtonText, { color: colors.white }]}>Create track</Text>
+            <Text style={[styles.primaryButtonText, { color: colors.white }]}>
+              {editingTrackId ? "Save changes" : "Create track"}
+            </Text>
             <Feather name="arrow-right" size={17} color={colors.white} />
           </Pressable>
         </View>
@@ -639,6 +704,10 @@ const styles = StyleSheet.create({
   addTrackPromptText: { fontSize: 13, fontWeight: "600" },
   twoColumns: { flexDirection: "row", gap: 10 },
   flexField: { flex: 1, minWidth: 0 },
+  dateLabelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  quickDateChips: { flexDirection: "row", gap: 5, marginTop: 4 },
+  quickChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: "rgba(0,0,0,0.05)" },
+  quickChipText: { fontSize: 10, fontWeight: "600" },
   errorText: { fontSize: 12, marginTop: 4, fontWeight: "600" },
   primaryButton: {
     minHeight: 52,

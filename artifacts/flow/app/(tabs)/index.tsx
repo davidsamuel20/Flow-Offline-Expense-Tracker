@@ -1,11 +1,12 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Screen, EntryList, SectionHeading, StatTile, formatMoney } from "@/components/FlowUI";
@@ -34,6 +35,17 @@ export default function TodayScreen() {
     day: "numeric",
     month: "long",
   });
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const visibleEntries = useMemo(() => {
+    if (!searchQuery.trim()) return data.entries;
+    const query = searchQuery.trim().toLowerCase();
+    return data.entries.filter(
+      (entry) =>
+        entry.title.toLowerCase().includes(query) ||
+        (entry.note && entry.note.toLowerCase().includes(query)),
+    );
+  }, [data.entries, searchQuery]);
 
   const confirmClearExamples = () => {
     Alert.alert(
@@ -137,7 +149,30 @@ export default function TodayScreen() {
             </Pressable>
           }
         />
-        <EntryList entries={data.entries} />
+
+        {data.entries.length > 2 ? (
+          <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Feather name="search" size={14} color={colors.mutedForeground} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search your lines..."
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.searchInput, { color: colors.foreground }]}
+            />
+            {searchQuery ? (
+              <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
+                <Feather name="x" size={14} color={colors.mutedForeground} />
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
+        <EntryList
+          entries={visibleEntries}
+          emptyTitle={searchQuery ? "No lines match" : undefined}
+          emptyText={searchQuery ? `Nothing found matching "${searchQuery}".` : undefined}
+        />
       </View>
     </Screen>
   );
@@ -183,6 +218,17 @@ const styles = StyleSheet.create({
   clearBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   clearBtnText: { fontSize: 11, fontWeight: "700" },
   latestSection: { marginTop: 4 },
+  searchBar: {
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 11,
+    gap: 8,
+    marginBottom: 10,
+  },
+  searchInput: { flex: 1, fontSize: 12, paddingVertical: 4 },
   addLineBtn: {
     flexDirection: "row",
     alignItems: "center",

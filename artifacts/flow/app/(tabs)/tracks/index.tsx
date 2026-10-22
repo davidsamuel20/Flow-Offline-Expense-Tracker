@@ -17,7 +17,7 @@ export default function TracksScreen() {
     >
       <Pressable
         accessibilityRole="button"
-        onPress={openTrackSheet}
+        onPress={() => openTrackSheet()}
         style={({ pressed }) => [
           styles.createTrack,
           { backgroundColor: colors.primary },

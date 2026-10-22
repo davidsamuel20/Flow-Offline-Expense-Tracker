@@ -16,7 +16,7 @@ import { useColors } from "@/hooks/useColors";
 export default function TrackDetailScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data, openEntry, deleteTrack } = useFlow();
+  const { data, openEntry, openTrackSheet, deleteTrack } = useFlow();
   const track = data.tracks.find((item) => item.id === id);
   const entries = data.entries.filter((entry) => entry.trackId === id);
   const spent = entries
@@ -35,6 +35,16 @@ export default function TrackDetailScreen() {
   }
 
   const remove = () => {
+    if (data.tracks.length <= 1) {
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") {
+          window.alert("You must keep at least one track in your journal.");
+        }
+        return;
+      }
+      Alert.alert("Cannot delete track", "You must keep at least one track in your journal.");
+      return;
+    }
     if (Platform.OS === "web") {
       if (typeof window !== "undefined" && window.confirm(`Remove ${track.name}? This also removes every journal line inside the track.`)) {
         deleteTrack(track.id);
@@ -107,14 +117,26 @@ export default function TrackDetailScreen() {
         />
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        onPress={remove}
-        style={[styles.removeTrack, { borderColor: colors.border }]}
-      >
-        <Feather name="trash-2" size={15} color={colors.expense} />
-        <Text style={[styles.removeText, { color: colors.expense }]}>Remove this track</Text>
-      </Pressable>
+      <View style={styles.trackActionsRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit track details"
+          onPress={() => openTrackSheet(track.id)}
+          style={[styles.actionBtn, { borderColor: colors.border }]}
+        >
+          <Feather name="edit-2" size={14} color={colors.primary} />
+          <Text style={[styles.actionBtnText, { color: colors.primary }]}>Edit track</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={remove}
+          style={[styles.actionBtn, { borderColor: colors.border }]}
+        >
+          <Feather name="trash-2" size={14} color={colors.expense} />
+          <Text style={[styles.actionBtnText, { color: colors.expense }]}>Remove track</Text>
+        </Pressable>
+      </View>
     </Screen>
   );
 }
@@ -131,7 +153,8 @@ const styles = StyleSheet.create({
   miniOut: { fontSize: 11, fontWeight: "700" },
   addButton: { minHeight: 50, borderRadius: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   addButtonText: { fontSize: 13, fontWeight: "700" },
-  removeTrack: { minHeight: 44, alignSelf: "center", borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 7 },
-  removeText: { fontSize: 11, fontWeight: "600" },
+  trackActionsRow: { flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 6 },
+  actionBtn: { minHeight: 44, borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 7 },
+  actionBtnText: { fontSize: 11, fontWeight: "600" },
   pressed: { opacity: 0.75 },
 });

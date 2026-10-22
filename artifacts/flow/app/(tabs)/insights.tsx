@@ -41,7 +41,7 @@ export default function InsightsScreen() {
         .reduce((sum, entry) => sum + entry.amountMinor, 0);
       return {
         date: dateString,
-        label: date.toLocaleDateString("en-IN", { weekday: "short" }).slice(0, 1),
+        label: date.toLocaleDateString("en-IN", { weekday: "short" }),
         amount: daySpent,
       };
     });
@@ -76,7 +76,19 @@ export default function InsightsScreen() {
         >
           <Feather name="chevron-left" size={18} color={colors.primary} />
         </Pressable>
-        <Text style={[styles.monthTitle, { color: colors.foreground }]}>{monthTitle}</Text>
+        <View style={styles.monthCenter}>
+          <Text style={[styles.monthTitle, { color: colors.foreground }]}>{monthTitle}</Text>
+          {key !== monthKey(new Date()) ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Reset to current month"
+              onPress={() => setMonthDate(new Date())}
+              style={[styles.todayChip, { backgroundColor: colors.secondary }]}
+            >
+              <Text style={[styles.todayChipText, { color: colors.primary }]}>This month</Text>
+            </Pressable>
+          ) : null}
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Next month"
@@ -178,6 +190,9 @@ export default function InsightsScreen() {
 
 const styles = StyleSheet.create({
   monthSelector: { height: 48, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 9 },
+  monthCenter: { flexDirection: "row", alignItems: "center", gap: 8 },
+  todayChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  todayChipText: { fontSize: 10, fontWeight: "700" },
   monthArrow: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   monthTitle: { fontSize: 14, fontWeight: "700" },
   netCard: { borderRadius: 23, padding: 19 },

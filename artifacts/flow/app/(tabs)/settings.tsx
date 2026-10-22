@@ -18,7 +18,11 @@ export default function SettingsScreen() {
     setOpeningBalance,
     requestSync,
     clearSampleData,
+    exportData,
+    importData,
   } = useFlow();
+  const hasClerk = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const accountEmail = user?.primaryEmailAddress?.emailAddress;
   const [openingAmount, setOpeningAmount] = useState((data.openingBalanceMinor / 100).toString());
   const [saved, setSaved] = useState(false);
   useEffect(() => {
@@ -51,6 +55,47 @@ export default function SettingsScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Clear entries", style: "destructive", onPress: clearSampleData },
     ]);
+  };
+
+  const handleExport = () => {
+    const json = exportData();
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `flow-journal-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    Alert.alert("Journal exported", "Your journal data has been generated.");
+  };
+
+  const handleImport = () => {
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json,application/json";
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement)?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const content = String(reader.result);
+          const res = importData(content);
+          if (res.success) {
+            window.alert("Journal restored successfully!");
+          } else {
+            window.alert(res.error || "Failed to restore backup.");
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+      return;
+    }
+    Alert.alert("Import backup", "Use the web app to choose a backup file to restore.");
   };
 
   const statusText = {
@@ -109,28 +154,86 @@ export default function SettingsScreen() {
       <View style={[styles.card, { backgroundColor: colors.card }]}>
         <View style={styles.cardHeading}>
           <View style={[styles.cardIcon, { backgroundColor: colors.secondary }]}>
-            <Feather name="user" size={17} color={colors.primary} />
+            <Feather name={hasClerk && accountEmail ? "user-check" : "user"} size={17} color={colors.primary} />
           </View>
           <View style={styles.cardCopy}>
-            <Text style={[styles.cardTitle, { color: colors.foreground }]}>Flow account</Text>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+              {hasClerk ? "Flow account" : "On-device ledger"}
+            </Text>
             <Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>
-              {user?.primaryEmailAddress?.emailAddress ?? "Signed in"}
+              {hasClerk
+                ? accountEmail ?? "Not connected"
+                : "Offline mode · Private storage"}
             </Text>
           </View>
         </View>
         <Text style={[styles.syncExplanation, { color: colors.mutedForeground }]}>
-          Your journal is tied to this account, so you can open it on another device.
+          {hasClerk
+            ? accountEmail
+              ? "Your journal is synced to this account across your devices."
+              : "Sign in to synchronize your journal safely across all your devices."
+            : "Your tracks and journal lines stay strictly on this device without requiring an account."}
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            void signOut().then(() => router.replace("/(auth)/sign-in"));
-          }}
-          style={[styles.outlineButton, { borderColor: colors.border }]}
-        >
-          <Feather name="log-out" size={14} color={colors.expense} />
-          <Text style={[styles.outlineText, { color: colors.expense }]}>Sign out</Text>
-        </Pressable>
+        {hasClerk ? (
+          accountEmail ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                void signOut().then(() => router.replace("/(auth)/sign-in"));
+              }}
+              style={[styles.outlineButton, { borderColor: colors.border }]}
+            >
+              <Feather name="log-out" size={14} color={colors.expense} />
+              <Text style={[styles.outlineText, { color: colors.expense }]}>Sign out</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/(auth)/sign-in")}
+              style={[styles.outlineButton, { borderColor: colors.primary }]}
+            >
+              <Feather name="log-in" size={14} color={colors.primary} />
+              <Text style={[styles.outlineText, { color: colors.primary }]}>Sign in / Connect account</Text>
+            </Pressable>
+          )
+        ) : null}
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <View style={styles.cardHeading}>
+          <View style={[styles.cardIcon, { backgroundColor: colors.secondary }]}>
+            <Feather name="database" size={17} color={colors.primary} />
+          </View>
+          <View style={styles.cardCopy}>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>Data & portability</Text>
+            <Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>
+              Export or restore your personal money journal
+            </Text>
+          </View>
+        </View>
+        <Text style={[styles.syncExplanation, { color: colors.mutedForeground }]}>
+          Download a complete offline JSON snapshot of your tracks, balances, and lines, or restore an existing backup anytime.
+        </Text>
+        <View style={styles.backupButtonsRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Export journal backup file"
+            onPress={handleExport}
+            style={[styles.outlineButton, { borderColor: colors.primary }]}
+          >
+            <Feather name="download" size={14} color={colors.primary} />
+            <Text style={[styles.outlineText, { color: colors.primary }]}>Export backup</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Restore journal from backup file"
+            onPress={handleImport}
+            style={[styles.outlineButton, { borderColor: colors.border }]}
+          >
+            <Feather name="upload" size={14} color={colors.foreground} />
+            <Text style={[styles.outlineText, { color: colors.foreground }]}>Restore backup</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -213,6 +316,7 @@ const styles = StyleSheet.create({
   saveButton: { height: 46, borderRadius: 15, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   saveText: { fontSize: 12, fontWeight: "700" },
   syncExplanation: { fontSize: 11, lineHeight: 17 },
+  backupButtonsRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   outlineButton: { height: 39, borderWidth: 1, borderRadius: 13, alignSelf: "flex-start", paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 7 },
   outlineText: { fontSize: 11, fontWeight: "700" },
   infoRow: { minHeight: 35, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

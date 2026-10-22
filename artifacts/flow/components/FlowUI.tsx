@@ -29,7 +29,9 @@ export function moneyText(amountMinor: number, kind: "expense" | "income") {
 }
 
 export function dateLabel(dateString: string) {
+  if (!dateString) return "Today";
   const date = new Date(`${dateString}T12:00:00`);
+  if (isNaN(date.getTime())) return dateString;
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);

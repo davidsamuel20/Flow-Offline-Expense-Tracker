@@ -11,7 +11,12 @@
       "backgroundColor": "#eaf4fc",
       "resizeMode": "contain"
     },
-    "owner": "nalu-app",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/23bfd21a-9dd8-4ecb-9934-e5364e9e759a"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.naluapp.flow"
@@ -33,11 +38,18 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-updates"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "23bfd21a-9dd8-4ecb-9934-e5364e9e759a"
+      }
+    },
+    "owner": "nalu-app"
   }
 }

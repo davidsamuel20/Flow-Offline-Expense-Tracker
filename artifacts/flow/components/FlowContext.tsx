@@ -52,11 +52,13 @@ type FlowContextValue = {
   syncStatus: SyncStatus;
   entrySheet: EntrySheetState;
   trackSheetVisible: boolean;
+  editingTrackId?: string;
   calculatorVisible: boolean;
   addEntry: (draft: EntryDraft) => void;
   updateEntry: (id: string, patch: Partial<EntryDraft>) => void;
   deleteEntry: (id: string) => void;
   addTrack: (name: string, color: string) => string;
+  updateTrack: (id: string, name: string, color: string) => void;
   deleteTrack: (id: string) => void;
   setOpeningBalance: (amountMinor: number) => void;
   clearSampleData: () => void;
@@ -65,7 +67,7 @@ type FlowContextValue = {
   openEntry: (trackId?: string, amountPrefill?: string) => void;
   editEntry: (id: string) => void;
   closeEntry: () => void;
-  openTrackSheet: () => void;
+  openTrackSheet: (trackId?: string) => void;
   closeTrackSheet: () => void;
   openCalculator: () => void;
   closeCalculator: () => void;
@@ -74,6 +76,8 @@ type FlowContextValue = {
   applyRemote: (remote: FlowState) => void;
   applyMerged: (merged: LocalFlowData) => void;
   markSynced: (sentUpdatedAt: string, savedAt: string) => void;
+  exportData: () => string;
+  importData: (rawJson: string) => { success: boolean; error?: string };
 };
 
 const FlowContext = createContext<FlowContextValue | null>(null);
@@ -233,7 +237,7 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
   const hydrated = authLoaded && hydratedStorageKey === storageKey;
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("local");
   const [entrySheet, setEntrySheet] = useState<EntrySheetState>({ visible: false });
-  const [trackSheetVisible, setTrackSheetVisible] = useState(false);
+  const [trackSheet, setTrackSheet] = useState<{ visible: boolean; trackId?: string }>({ visible: false });
   const [calculatorVisible, setCalculatorVisible] = useState(false);
   const [syncRequests, setSyncRequests] = useState(0);
 
@@ -331,6 +335,17 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
     return id;
   }, []);
 
+  const updateTrack = useCallback((id: string, name: string, color: string) => {
+    const now = new Date().toISOString();
+    setData((current) => ({
+      ...current,
+      tracks: current.tracks.map((track) =>
+        track.id === id ? { ...track, name: name.trim(), color, updatedAt: now } : track,
+      ),
+      updatedAt: now,
+    }));
+  }, []);
+
   const deleteTrack = useCallback((id: string) => {
     const now = new Date().toISOString();
     setData((current) => ({
@@ -390,11 +405,37 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
     setEntrySheet({ visible: false });
   }, []);
 
-  const openTrackSheet = useCallback(() => setTrackSheetVisible(true), []);
-  const closeTrackSheet = useCallback(() => setTrackSheetVisible(false), []);
+  const openTrackSheet = useCallback((trackId?: string) => setTrackSheet({ visible: true, trackId }), []);
+  const closeTrackSheet = useCallback(() => setTrackSheet({ visible: false }), []);
   const openCalculator = useCallback(() => setCalculatorVisible(true), []);
   const closeCalculator = useCallback(() => setCalculatorVisible(false), []);
   const requestSync = useCallback(() => setSyncRequests((count) => count + 1), []);
+
+  const exportData = useCallback(() => {
+    return JSON.stringify(data, null, 2);
+  }, [data]);
+
+  const importData = useCallback((rawJson: string) => {
+    try {
+      const parsed = JSON.parse(rawJson);
+      if (!parsed || !Array.isArray(parsed.tracks) || !Array.isArray(parsed.entries)) {
+        return { success: false, error: "The provided backup is missing tracks or entries." };
+      }
+      const now = new Date().toISOString();
+      setData((current) => ({
+        ...current,
+        openingBalanceMinor: typeof parsed.openingBalanceMinor === "number" ? parsed.openingBalanceMinor : 0,
+        tracks: parsed.tracks,
+        entries: parsed.entries,
+        sampleData: false,
+        selectedIds: [],
+        updatedAt: now,
+      }));
+      return { success: true };
+    } catch {
+      return { success: false, error: "Invalid JSON format in backup file." };
+    }
+  }, []);
 
   const applyRemote = useCallback((remote: FlowState) => {
     setData((current) => ({
@@ -429,12 +470,14 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       hydrated,
       syncStatus,
       entrySheet,
-      trackSheetVisible,
+      trackSheetVisible: trackSheet.visible,
+      editingTrackId: trackSheet.trackId,
       calculatorVisible,
       addEntry,
       updateEntry,
       deleteEntry,
       addTrack,
+      updateTrack,
       deleteTrack,
       setOpeningBalance,
       clearSampleData,
@@ -452,18 +495,21 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       applyRemote,
       applyMerged,
       markSynced,
+      exportData,
+      importData,
     }),
     [
       data,
       hydrated,
       syncStatus,
       entrySheet,
-      trackSheetVisible,
+      trackSheet,
       calculatorVisible,
       addEntry,
       updateEntry,
       deleteEntry,
       addTrack,
+      updateTrack,
       deleteTrack,
       setOpeningBalance,
       clearSampleData,
@@ -480,6 +526,8 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       applyRemote,
       applyMerged,
       markSynced,
+      exportData,
+      importData,
     ],
   );
 
