@@ -10,7 +10,7 @@ import {
   type FlowTrack,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/expo";
+import { useSafeAuth } from "@/components/SafeAuthProvider";
 import React, {
   createContext,
   useCallback,
@@ -227,8 +227,7 @@ function mergeAccountState(local: LocalFlowData, remote: FlowState) {
 }
 
 export function FlowProvider({ children }: { children: React.ReactNode }) {
-  const { isLoaded: clerkAuthLoaded, userId: rawUserId } = useAuth();
-  const hasClerk = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const { isLoaded: clerkAuthLoaded, userId: rawUserId, hasClerk } = useSafeAuth();
   const authLoaded = !hasClerk || clerkAuthLoaded;
   const userId = hasClerk ? rawUserId : null;
   const [data, setData] = useState<LocalFlowData>(() => createStarterState());
@@ -546,8 +545,7 @@ export function useFlow() {
 }
 
 function FlowSyncBridge({ syncRequests }: { syncRequests: number }) {
-  const { isLoaded: clerkAuthLoaded, userId: rawUserId } = useAuth();
-  const hasClerk = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const { isLoaded: clerkAuthLoaded, userId: rawUserId, hasClerk } = useSafeAuth();
   const authLoaded = !hasClerk || clerkAuthLoaded;
   const userId = hasClerk ? rawUserId : null;
   const {

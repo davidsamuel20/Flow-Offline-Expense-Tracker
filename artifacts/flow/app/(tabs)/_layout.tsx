@@ -5,7 +5,7 @@ import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Redirect } from 'expo-router';
-import { useAuth } from '@clerk/expo';
+import { useSafeAuth } from '@/components/SafeAuthProvider';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
@@ -165,8 +165,7 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  const { isLoaded: clerkIsLoaded, isSignedIn: clerkIsSignedIn } = useAuth();
-  const hasClerk = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const { isLoaded: clerkIsLoaded, isSignedIn: clerkIsSignedIn, hasClerk } = useSafeAuth();
   const isLoaded = !hasClerk || clerkIsLoaded;
   const isSignedIn = !hasClerk || clerkIsSignedIn;
   const colors = useColors();

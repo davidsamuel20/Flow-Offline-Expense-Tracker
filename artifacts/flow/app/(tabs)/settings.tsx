@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { useClerk, useUser } from "@clerk/expo";
+import { useSafeAuth } from "@/components/SafeAuthProvider";
 import { useRouter } from "expo-router";
 import { Screen } from "@/components/FlowUI";
 import { useFlow } from "@/components/FlowContext";
@@ -9,8 +9,7 @@ import { useColors } from "@/hooks/useColors";
 
 export default function SettingsScreen() {
   const colors = useColors();
-  const { signOut } = useClerk();
-  const { user } = useUser();
+  const { signOut, user, hasClerk } = useSafeAuth();
   const router = useRouter();
   const {
     data,
@@ -21,7 +20,6 @@ export default function SettingsScreen() {
     exportData,
     importData,
   } = useFlow();
-  const hasClerk = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
   const accountEmail = user?.primaryEmailAddress?.emailAddress;
   const [openingAmount, setOpeningAmount] = useState((data.openingBalanceMinor / 100).toString());
   const [saved, setSaved] = useState(false);

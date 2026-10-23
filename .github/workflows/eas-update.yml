@@ -59,6 +59,10 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EAS_SKIP_AUTO_FINGERPRINT: '1'
         run: |
-          CHANNEL="${{ github.event.inputs.channel || 'production' }}"
           MESSAGE="${{ github.event.inputs.message || github.event.head_commit.message || 'OTA update from GitHub Actions' }}"
-          eas update --channel "$CHANNEL" --environment "$CHANNEL" --message "$MESSAGE" --non-interactive
+          if [ -n "${{ github.event.inputs.channel }}" ]; then
+            eas update --channel "${{ github.event.inputs.channel }}" --environment "${{ github.event.inputs.channel }}" --message "$MESSAGE" --non-interactive
+          else
+            eas update --channel production --environment production --message "$MESSAGE" --non-interactive
+            eas update --channel preview --environment preview --message "$MESSAGE" --non-interactive
+          fi
