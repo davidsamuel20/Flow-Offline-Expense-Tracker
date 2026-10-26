@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -476,7 +477,10 @@ function TrackSheet({ visible }: { visible: boolean }) {
       onRequestClose={closeTrackSheet}
       statusBarTranslucent
     >
-      <View style={[styles.modalRoot, { backgroundColor: colors.overlay }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={[styles.modalRoot, { backgroundColor: colors.overlay }]}
+      >
         <Pressable style={styles.scrim} onPress={closeTrackSheet} />
         <View style={[styles.sheet, styles.shortSheet, { backgroundColor: colors.background, shadowColor: colors.primary }]}>
           <View style={[styles.handle, { backgroundColor: colors.handle }]} />
@@ -493,53 +497,60 @@ function TrackSheet({ visible }: { visible: boolean }) {
               <Feather name="x" size={22} color={colors.mutedForeground} />
             </Pressable>
           </View>
-          <TextInput
-            accessibilityLabel="Track name"
-            value={name}
-            onChangeText={setName}
-            placeholder="College, home, travel…"
-            placeholderTextColor={colors.mutedForeground}
-            style={[styles.input, { backgroundColor: colors.card, color: colors.foreground }]}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={save}
-          />
-          <FieldLabel label="CHOOSE A COLOUR" />
-          <View style={styles.colorChoices}>
-            {[
-              ["sky", colors.sky],
-              ["navy", colors.primary],
-              ["green", colors.income],
-              ["coral", colors.expense],
-            ].map(([value, tint]) => (
-              <Pressable
-                key={value}
-                accessibilityRole="button"
-                accessibilityLabel={`${value} track colour`}
-                accessibilityState={{ selected: color === value }}
-                onPress={() => setColor(value)}
-                style={[
-                  styles.colorChoice,
-                  { backgroundColor: tint, borderColor: color === value ? colors.foreground : "transparent" },
-                ]}
-              >
-                {color === value ? <Feather name="check" size={15} color={colors.white} /> : null}
-              </Pressable>
-            ))}
-          </View>
-          {error ? <Text style={[styles.errorText, { color: colors.expense }]}>{error}</Text> : null}
-          <Pressable
-            accessibilityRole="button"
-            onPress={save}
-            style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+          <ScrollView
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ gap: 13, paddingBottom: 8 }}
           >
-            <Text style={[styles.primaryButtonText, { color: colors.white }]}>
-              {editingTrackId ? "Save changes" : "Create track"}
-            </Text>
-            <Feather name="arrow-right" size={17} color={colors.white} />
-          </Pressable>
+            <TextInput
+              accessibilityLabel="Track name"
+              value={name}
+              onChangeText={setName}
+              placeholder="College, home, travel…"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.input, { backgroundColor: colors.card, color: colors.foreground }]}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={save}
+            />
+            <FieldLabel label="CHOOSE A COLOUR" />
+            <View style={styles.colorChoices}>
+              {[
+                ["sky", colors.sky],
+                ["navy", colors.primary],
+                ["green", colors.income],
+                ["coral", colors.expense],
+              ].map(([value, tint]) => (
+                <Pressable
+                  key={value}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${value} track colour`}
+                  accessibilityState={{ selected: color === value }}
+                  onPress={() => setColor(value)}
+                  style={[
+                    styles.colorChoice,
+                    { backgroundColor: tint, borderColor: color === value ? colors.foreground : "transparent" },
+                  ]}
+                >
+                  {color === value ? <Feather name="check" size={15} color={colors.white} /> : null}
+                </Pressable>
+              ))}
+            </View>
+            {error ? <Text style={[styles.errorText, { color: colors.expense }]}>{error}</Text> : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={save}
+              style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+            >
+              <Text style={[styles.primaryButtonText, { color: colors.white }]}>
+                {editingTrackId ? "Save changes" : "Create track"}
+              </Text>
+              <Feather name="arrow-right" size={17} color={colors.white} />
+            </Pressable>
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -636,7 +647,10 @@ function TagSheet({ visible }: { visible: boolean }) {
       onRequestClose={closeTagSheet}
       statusBarTranslucent
     >
-      <View style={[styles.modalRoot, { backgroundColor: colors.overlay }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={[styles.modalRoot, { backgroundColor: colors.overlay }]}
+      >
         <Pressable style={styles.scrim} onPress={closeTagSheet} />
         <View style={[styles.sheet, styles.shortSheet, { backgroundColor: colors.background, shadowColor: colors.primary }]}>
           <View style={[styles.handle, { backgroundColor: colors.handle }]} />
@@ -657,91 +671,98 @@ function TagSheet({ visible }: { visible: boolean }) {
             </Pressable>
           </View>
 
-          {view === "list" ? (
-            <>
-              <View style={styles.tagList}>
-                {data.tags.map((tag) => {
-                  const tint = tagTintHex(tag.color);
-                  return (
-                    <View key={tag.id} style={[styles.tagListRow, { backgroundColor: colors.card }]}>
-                      <View style={[styles.tagListDot, { backgroundColor: tint }]} />
-                      <Text style={[styles.tagListName, { color: colors.foreground }]}>{tag.name}</Text>
-                      <Pressable
-                        onPress={() => startEdit(tag)}
-                        hitSlop={8}
-                        style={styles.tagListAction}
-                        accessibilityLabel={`Edit ${tag.name}`}
-                      >
-                        <Feather name="edit-2" size={15} color={colors.primary} />
-                      </Pressable>
-                      <Pressable
-                        onPress={() => confirmDelete(tag)}
-                        hitSlop={8}
-                        style={styles.tagListAction}
-                        accessibilityLabel={`Delete ${tag.name}`}
-                      >
-                        <Feather name="trash-2" size={15} color={colors.expense} />
-                      </Pressable>
-                    </View>
-                  );
-                })}
-              </View>
+          <ScrollView
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ gap: 13, paddingBottom: 8 }}
+          >
+            {view === "list" ? (
+              <>
+                <View style={styles.tagList}>
+                  {data.tags.map((tag) => {
+                    const tint = tagTintHex(tag.color);
+                    return (
+                      <View key={tag.id} style={[styles.tagListRow, { backgroundColor: colors.card }]}>
+                        <View style={[styles.tagListDot, { backgroundColor: tint }]} />
+                        <Text style={[styles.tagListName, { color: colors.foreground }]}>{tag.name}</Text>
+                        <Pressable
+                          onPress={() => startEdit(tag)}
+                          hitSlop={8}
+                          style={styles.tagListAction}
+                          accessibilityLabel={`Edit ${tag.name}`}
+                        >
+                          <Feather name="edit-2" size={15} color={colors.primary} />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => confirmDelete(tag)}
+                          hitSlop={8}
+                          style={styles.tagListAction}
+                          accessibilityLabel={`Delete ${tag.name}`}
+                        >
+                          <Feather name="trash-2" size={15} color={colors.expense} />
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
 
-              <Pressable
-                accessibilityRole="button"
-                onPress={startCreate}
-                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-              >
-                <Feather name="plus" size={17} color={colors.white} />
-                <Text style={[styles.primaryButtonText, { color: colors.white }]}>Create new type</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <TextInput
-                accessibilityLabel="Type name"
-                value={name}
-                onChangeText={setName}
-                placeholder="Gift, Savings, Urgent, etc…"
-                placeholderTextColor={colors.mutedForeground}
-                style={[styles.input, { backgroundColor: colors.card, color: colors.foreground }]}
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={save}
-              />
-              <FieldLabel label="CHOOSE A COLOUR" />
-              <View style={styles.tagColorGrid}>
-                {TAG_COLOR_OPTIONS.map(([val, tint]) => (
-                  <Pressable
-                    key={val}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${val} colour`}
-                    accessibilityState={{ selected: color === val }}
-                    onPress={() => setColor(val)}
-                    style={[
-                      styles.colorChoice,
-                      { backgroundColor: tint, borderColor: color === val ? colors.foreground : "transparent" },
-                    ]}
-                  >
-                    {color === val ? <Feather name="check" size={15} color={colors.white} /> : null}
-                  </Pressable>
-                ))}
-              </View>
-              {error ? <Text style={[styles.errorText, { color: colors.expense }]}>{error}</Text> : null}
-              <Pressable
-                accessibilityRole="button"
-                onPress={save}
-                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-              >
-                <Text style={[styles.primaryButtonText, { color: colors.white }]}>
-                  {editingTagId ? "Save changes" : "Create type"}
-                </Text>
-                <Feather name="arrow-right" size={17} color={colors.white} />
-              </Pressable>
-            </>
-          )}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={startCreate}
+                  style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                >
+                  <Feather name="plus" size={17} color={colors.white} />
+                  <Text style={[styles.primaryButtonText, { color: colors.white }]}>Create new type</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <TextInput
+                  accessibilityLabel="Type name"
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Gift, Savings, Urgent, etc…"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={[styles.input, { backgroundColor: colors.card, color: colors.foreground }]}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={save}
+                />
+                <FieldLabel label="CHOOSE A COLOUR" />
+                <View style={styles.tagColorGrid}>
+                  {TAG_COLOR_OPTIONS.map(([val, tint]) => (
+                    <Pressable
+                      key={val}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${val} colour`}
+                      accessibilityState={{ selected: color === val }}
+                      onPress={() => setColor(val)}
+                      style={[
+                        styles.colorChoice,
+                        { backgroundColor: tint, borderColor: color === val ? colors.foreground : "transparent" },
+                      ]}
+                    >
+                      {color === val ? <Feather name="check" size={15} color={colors.white} /> : null}
+                    </Pressable>
+                  ))}
+                </View>
+                {error ? <Text style={[styles.errorText, { color: colors.expense }]}>{error}</Text> : null}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={save}
+                  style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={[styles.primaryButtonText, { color: colors.white }]}>
+                    {editingTagId ? "Save changes" : "Create type"}
+                  </Text>
+                  <Feather name="arrow-right" size={17} color={colors.white} />
+                </Pressable>
+              </>
+            )}
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -932,7 +953,7 @@ const styles = StyleSheet.create({
     elevation: 15,
   },
   entrySheet: { maxHeight: "94%" },
-  shortSheet: { paddingBottom: 28, gap: 13 },
+  shortSheet: { maxHeight: "90%", paddingBottom: 28, gap: 13 },
   calculatorSheet: { paddingBottom: 28, gap: 14 },
   handle: {
     alignSelf: "center",
