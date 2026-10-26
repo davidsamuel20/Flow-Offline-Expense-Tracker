@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { FlowEntry, FlowTrack } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useFlow } from "@/components/FlowContext";
+import { tagTintHex } from "@/constants/tagColors";
 
 export function formatMoney(amountMinor: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -308,6 +309,8 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
   const isIncome = entry.kind === "income";
   const track = data.tracks.find((t) => t.id === entry.trackId);
   const tint = trackTint(track, colors);
+  const tag = data.tags.find((t) => t.id === (entry as any).tagId);
+  const tagColor = tag ? tagTintHex(tag.color) : null;
 
   return (
     <View
@@ -315,6 +318,7 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
         styles.entryRow,
         !last && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
         selected && { backgroundColor: colors.secondary },
+        tagColor ? { borderLeftWidth: 3.5, borderLeftColor: tagColor } : null,
       ]}
     >
       {/* Checkbox for selecting / totaling */}
@@ -347,13 +351,19 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
         <View
           style={[
             styles.entryGlyph,
-            { backgroundColor: isIncome ? colors.incomeSoft : colors.expenseSoft },
+            {
+              backgroundColor: tagColor
+                ? `${tagColor}20`
+                : isIncome
+                ? colors.incomeSoft
+                : colors.expenseSoft,
+            },
           ]}
         >
           <Feather
             name={isIncome ? "arrow-down-left" : "arrow-up-right"}
             size={15}
-            color={isIncome ? colors.income : colors.expense}
+            color={tagColor ?? (isIncome ? colors.income : colors.expense)}
           />
         </View>
 
@@ -369,6 +379,14 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
                 </Text>
               </View>
             ) : null}
+            {tag && tagColor ? (
+              <View style={[styles.tagBadge, { backgroundColor: `${tagColor}18` }]}>
+                <View style={[styles.tagBadgeDot, { backgroundColor: tagColor }]} />
+                <Text style={[styles.tagBadgeText, { color: tagColor }]}>
+                  {tag.name}
+                </Text>
+              </View>
+            ) : null}
           </View>
           {entry.note ? (
             <Text numberOfLines={2} style={[styles.entryNote, { color: colors.mutedForeground }]}>
@@ -376,7 +394,7 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
             </Text>
           ) : (
             <Text style={[styles.entryNote, { color: colors.mutedForeground }]}>
-              {isIncome ? "Money in" : "Money out"}
+              {tag ? tag.name : isIncome ? "Money in" : "Money out"}
             </Text>
           )}
         </View>
@@ -583,6 +601,20 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   trackBadgeText: { fontSize: 10, fontWeight: "700" },
+  tagBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  tagBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  tagBadgeText: { fontSize: 10, fontWeight: "700" },
   entryNote: { fontSize: 12, lineHeight: 16, marginTop: 2 },
   entryRight: {
     alignItems: "flex-end",

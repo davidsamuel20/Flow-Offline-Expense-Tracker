@@ -13,15 +13,18 @@ import {
 } from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { localDateString, useFlow } from "@/components/FlowContext";
+import type { PaymentTag } from "@/components/FlowContext";
+import { TAG_COLOR_OPTIONS, tagTintHex } from "@/constants/tagColors";
 import { useColors } from "@/hooks/useColors";
 import { formatMoney } from "@/components/FlowUI";
 
 export function FlowOverlays() {
-  const { entrySheet, trackSheetVisible, calculatorVisible } = useFlow();
+  const { entrySheet, trackSheetVisible, calculatorVisible, tagSheetState } = useFlow();
   return (
     <>
       <EntrySheet visible={entrySheet.visible} />
       <TrackSheet visible={trackSheetVisible} />
+      <TagSheet visible={tagSheetState.visible} />
       <CalculatorSheet visible={calculatorVisible} />
     </>
   );
@@ -37,6 +40,7 @@ function EntrySheet({ visible }: { visible: boolean }) {
     deleteEntry,
     closeEntry,
     openTrackSheet,
+    openTagSheet,
   } = useFlow();
   const existing = data.entries.find((entry) => entry.id === entrySheet.entryId);
   const [title, setTitle] = useState("");
@@ -45,6 +49,7 @@ function EntrySheet({ visible }: { visible: boolean }) {
   const [date, setDate] = useState(localDateString());
   const [note, setNote] = useState("");
   const [trackId, setTrackId] = useState("");
+  const [tagId, setTagId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -60,6 +65,7 @@ function EntrySheet({ visible }: { visible: boolean }) {
     setDate(entry?.date ?? localDateString());
     setNote(entry?.note ?? "");
     setTrackId(entry?.trackId ?? entrySheet.trackId ?? data.tracks[0]?.id ?? "");
+    setTagId((entry as any)?.tagId ?? null);
     setError("");
   }, [visible, entrySheet.entryId, entrySheet.trackId, entrySheet.amountPrefill, data.entries, data.tracks]);
 
@@ -97,6 +103,7 @@ function EntrySheet({ visible }: { visible: boolean }) {
       kind,
       date,
       note: note.trim() || null,
+      tagId: tagId || null,
     };
     if (entrySheet.entryId) updateEntry(entrySheet.entryId, draft);
     else addEntry(draft);
@@ -210,6 +217,61 @@ function EntrySheet({ visible }: { visible: boolean }) {
               keyboardType="decimal-pad"
               style={[styles.amountInput, { backgroundColor: colors.card, color: colors.foreground }]}
             />
+
+            <FieldLabel label="TYPE OF PAYMENT" />
+            <View style={styles.trackChoices}>
+              {data.tags.map((tag) => {
+                const active = tag.id === tagId;
+                const tint = tagTintHex(tag.color);
+                return (
+                  <Pressable
+                    key={tag.id}
+                    onPress={() => setTagId(active ? null : tag.id)}
+                    style={[
+                      styles.trackChoice,
+                      {
+                        backgroundColor: active ? tint : colors.card,
+                        borderWidth: 1.5,
+                        borderColor: active ? tint : `${tint}44`,
+                      },
+                    ]}
+                  >
+                    <View style={styles.tagChoiceContent}>
+                      <View
+                        style={[
+                          styles.tagDot,
+                          { backgroundColor: active ? colors.white : tint },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.trackChoiceText,
+                          { color: active ? colors.white : colors.foreground },
+                        ]}
+                      >
+                        {tag.name}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Create new type of payment"
+                onPress={() => openTagSheet()}
+                style={[styles.addTrackChoice, { borderColor: colors.border }]}
+              >
+                <Feather name="plus" size={15} color={colors.primary} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Manage types of payment"
+                onPress={() => openTagSheet()}
+                style={[styles.addTrackChoice, { borderColor: colors.border }]}
+              >
+                <Feather name="edit-2" size={13} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
 
             <FieldLabel label="TRACK" />
             {data.tracks.length > 0 ? (
@@ -474,6 +536,208 @@ function TrackSheet({ visible }: { visible: boolean }) {
   );
 }
 
+function TagSheet({ visible }: { visible: boolean }) {
+  const colors = useColors();
+  const { data, tagSheetState, addTag, updateTag, deleteTag, closeTagSheet } = useFlow();
+  const [view, setView] = useState<"list" | "edit">("list");
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [color, setColor] = useState("gray");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (visible) {
+      if (tagSheetState.editingTagId) {
+        const found = data.tags.find((t) => t.id === tagSheetState.editingTagId);
+        if (found) {
+          setEditingTagId(found.id);
+          setName(found.name);
+          setColor(found.color);
+          setView("edit");
+        } else {
+          setView("list");
+          setEditingTagId(null);
+          setName("");
+          setColor("gray");
+        }
+      } else {
+        setView("list");
+        setEditingTagId(null);
+        setName("");
+        setColor("gray");
+      }
+      setError("");
+    }
+  }, [visible, tagSheetState.editingTagId, data.tags]);
+
+  const startCreate = () => {
+    setEditingTagId(null);
+    setName("");
+    setColor("gray");
+    setError("");
+    setView("edit");
+  };
+
+  const startEdit = (tag: PaymentTag) => {
+    setEditingTagId(tag.id);
+    setName(tag.name);
+    setColor(tag.color);
+    setError("");
+    setView("edit");
+  };
+
+  const save = () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Give your type a name.");
+      return;
+    }
+    if (editingTagId) {
+      updateTag(editingTagId, trimmed, color);
+    } else {
+      addTag(trimmed, color);
+    }
+    setView("list");
+    setEditingTagId(null);
+    setName("");
+    setError("");
+  };
+
+  const confirmDelete = (tag: PaymentTag) => {
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm(`Remove "${tag.name}"? Entries using it will become untagged.`)) {
+        deleteTag(tag.id);
+      }
+      return;
+    }
+    Alert.alert(
+      `Remove "${tag.name}"?`,
+      "Entries using this payment type will become untagged.",
+      [
+        { text: "Keep it", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: () => deleteTag(tag.id) },
+      ],
+    );
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={closeTagSheet}
+      statusBarTranslucent
+    >
+      <View style={[styles.modalRoot, { backgroundColor: colors.overlay }]}>
+        <Pressable style={styles.scrim} onPress={closeTagSheet} />
+        <View style={[styles.sheet, styles.shortSheet, { backgroundColor: colors.background, shadowColor: colors.primary }]}>
+          <View style={[styles.handle, { backgroundColor: colors.handle }]} />
+          <View style={styles.sheetHeader}>
+            <View>
+              <Text style={[styles.sheetEyebrow, { color: colors.mutedForeground }]}>
+                {view === "list" ? "PAYMENT MODES" : editingTagId ? "EDIT TYPE" : "NEW TYPE"}
+              </Text>
+              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
+                {view === "list" ? "Types of payment" : editingTagId ? "Update type" : "Create a type"}
+              </Text>
+            </View>
+            <Pressable
+              onPress={view === "edit" ? () => setView("list") : closeTagSheet}
+              accessibilityLabel={view === "edit" ? "Back to list" : "Close type manager"}
+            >
+              <Feather name={view === "edit" ? "arrow-left" : "x"} size={22} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+
+          {view === "list" ? (
+            <>
+              <View style={styles.tagList}>
+                {data.tags.map((tag) => {
+                  const tint = tagTintHex(tag.color);
+                  return (
+                    <View key={tag.id} style={[styles.tagListRow, { backgroundColor: colors.card }]}>
+                      <View style={[styles.tagListDot, { backgroundColor: tint }]} />
+                      <Text style={[styles.tagListName, { color: colors.foreground }]}>{tag.name}</Text>
+                      <Pressable
+                        onPress={() => startEdit(tag)}
+                        hitSlop={8}
+                        style={styles.tagListAction}
+                        accessibilityLabel={`Edit ${tag.name}`}
+                      >
+                        <Feather name="edit-2" size={15} color={colors.primary} />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => confirmDelete(tag)}
+                        hitSlop={8}
+                        style={styles.tagListAction}
+                        accessibilityLabel={`Delete ${tag.name}`}
+                      >
+                        <Feather name="trash-2" size={15} color={colors.expense} />
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={startCreate}
+                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+              >
+                <Feather name="plus" size={17} color={colors.white} />
+                <Text style={[styles.primaryButtonText, { color: colors.white }]}>Create new type</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <TextInput
+                accessibilityLabel="Type name"
+                value={name}
+                onChangeText={setName}
+                placeholder="Gift, Savings, Urgent, etc…"
+                placeholderTextColor={colors.mutedForeground}
+                style={[styles.input, { backgroundColor: colors.card, color: colors.foreground }]}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={save}
+              />
+              <FieldLabel label="CHOOSE A COLOUR" />
+              <View style={styles.tagColorGrid}>
+                {TAG_COLOR_OPTIONS.map(([val, tint]) => (
+                  <Pressable
+                    key={val}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${val} colour`}
+                    accessibilityState={{ selected: color === val }}
+                    onPress={() => setColor(val)}
+                    style={[
+                      styles.colorChoice,
+                      { backgroundColor: tint, borderColor: color === val ? colors.foreground : "transparent" },
+                    ]}
+                  >
+                    {color === val ? <Feather name="check" size={15} color={colors.white} /> : null}
+                  </Pressable>
+                ))}
+              </View>
+              {error ? <Text style={[styles.errorText, { color: colors.expense }]}>{error}</Text> : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={save}
+                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+              >
+                <Text style={[styles.primaryButtonText, { color: colors.white }]}>
+                  {editingTagId ? "Save changes" : "Create type"}
+                </Text>
+                <Feather name="arrow-right" size={17} color={colors.white} />
+              </Pressable>
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function CalculatorSheet({ visible }: { visible: boolean }) {
   const colors = useColors();
   const { closeCalculator, openEntry } = useFlow();
@@ -729,5 +993,20 @@ const styles = StyleSheet.create({
   keypad: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   keyButton: { width: "22.9%", height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   keyText: { fontSize: 17, fontWeight: "600" },
+  tagChoiceContent: { flexDirection: "row", alignItems: "center", gap: 6 },
+  tagDot: { width: 8, height: 8, borderRadius: 4 },
+  tagList: { gap: 8, marginBottom: 8 },
+  tagListRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  tagListDot: { width: 10, height: 10, borderRadius: 5 },
+  tagListName: { flex: 1, fontSize: 14, fontWeight: "600" },
+  tagListAction: { padding: 4 },
+  tagColorGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 6 },
   pressed: { opacity: 0.75 },
 });

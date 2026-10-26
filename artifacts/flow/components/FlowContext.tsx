@@ -31,19 +31,44 @@ function getAccountStorageKey(userId: string) {
 
 type SyncStatus = "local" | "syncing" | "synced" | "offline";
 
-type LocalFlowData = FlowState & {
+export type PaymentTag = {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const DEFAULT_TAGS: PaymentTag[] = [
+  { id: "tag_default", name: "Default", color: "gray", createdAt: "", updatedAt: "" },
+  { id: "tag_gift", name: "Gift", color: "violet", createdAt: "", updatedAt: "" },
+  { id: "tag_imp", name: "Important", color: "amber", createdAt: "", updatedAt: "" },
+];
+
+export type FlowEntryWithTag = FlowEntry & {
+  tagId?: string | null;
+};
+
+type LocalFlowData = Omit<FlowState, "entries"> & {
   lastSyncedAt: string | null;
   sampleData: boolean;
   selectedIds: string[];
   openingBalanceUpdatedAt: string | null;
+  tags: PaymentTag[];
+  entries: FlowEntryWithTag[];
 };
 
-type EntryDraft = Omit<FlowEntry, "id" | "createdAt" | "updatedAt">;
+type EntryDraft = Omit<FlowEntryWithTag, "id" | "createdAt" | "updatedAt">;
 type EntrySheetState = {
   visible: boolean;
   trackId?: string;
   entryId?: string;
   amountPrefill?: string;
+};
+
+type TagSheetState = {
+  visible: boolean;
+  editingTagId?: string;
 };
 
 type FlowContextValue = {
@@ -53,6 +78,7 @@ type FlowContextValue = {
   entrySheet: EntrySheetState;
   trackSheetVisible: boolean;
   editingTrackId?: string;
+  tagSheetState: TagSheetState;
   calculatorVisible: boolean;
   addEntry: (draft: EntryDraft) => void;
   updateEntry: (id: string, patch: Partial<EntryDraft>) => void;
@@ -60,6 +86,11 @@ type FlowContextValue = {
   addTrack: (name: string, color: string) => string;
   updateTrack: (id: string, name: string, color: string) => void;
   deleteTrack: (id: string) => void;
+  addTag: (name: string, color: string) => string;
+  updateTag: (id: string, name: string, color: string) => void;
+  deleteTag: (id: string) => void;
+  openTagSheet: (tagId?: string) => void;
+  closeTagSheet: () => void;
   setOpeningBalance: (amountMinor: number) => void;
   clearSampleData: () => void;
   toggleSelected: (id: string) => void;
@@ -104,6 +135,7 @@ function createStarterState(): LocalFlowData {
       { id: everydayId, name: "Everyday", color: "sky", createdAt: now, updatedAt: now },
       { id: collegeId, name: "College", color: "navy", createdAt: now, updatedAt: now },
     ],
+    tags: DEFAULT_TAGS.map((t) => ({ ...t, createdAt: now, updatedAt: now })),
     entries: [
       {
         id: makeId("entry"),
@@ -113,6 +145,7 @@ function createStarterState(): LocalFlowData {
         kind: "expense",
         date: localDateString(),
         note: null,
+        tagId: "tag_default",
         createdAt: now,
         updatedAt: now,
       },
@@ -124,6 +157,7 @@ function createStarterState(): LocalFlowData {
         kind: "income",
         date: localDateString(),
         note: "Money in",
+        tagId: "tag_imp",
         createdAt: now,
         updatedAt: now,
       },
@@ -146,9 +180,14 @@ function parseLocalState(raw: string): LocalFlowData | null {
     ) {
       return null;
     }
+    const now = new Date().toISOString();
     return {
       ...createStarterState(),
       ...saved,
+      tags:
+        Array.isArray(saved.tags) && saved.tags.length > 0
+          ? saved.tags
+          : DEFAULT_TAGS.map((t) => ({ ...t, createdAt: now, updatedAt: now })),
       selectedIds: [],
       sampleData: saved.sampleData === true,
       openingBalanceUpdatedAt:
@@ -237,6 +276,7 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("local");
   const [entrySheet, setEntrySheet] = useState<EntrySheetState>({ visible: false });
   const [trackSheet, setTrackSheet] = useState<{ visible: boolean; trackId?: string }>({ visible: false });
+  const [tagSheet, setTagSheet] = useState<TagSheetState>({ visible: false });
   const [calculatorVisible, setCalculatorVisible] = useState(false);
   const [syncRequests, setSyncRequests] = useState(0);
 
@@ -358,6 +398,48 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const addTag = useCallback((name: string, color: string) => {
+    const now = new Date().toISOString();
+    const id = makeId("tag");
+    setData((current) => ({
+      ...current,
+      tags: [...current.tags, { id, name: name.trim(), color, createdAt: now, updatedAt: now }],
+      updatedAt: now,
+    }));
+    return id;
+  }, []);
+
+  const updateTag = useCallback((id: string, name: string, color: string) => {
+    const now = new Date().toISOString();
+    setData((current) => ({
+      ...current,
+      tags: current.tags.map((tag) =>
+        tag.id === id ? { ...tag, name: name.trim(), color, updatedAt: now } : tag,
+      ),
+      updatedAt: now,
+    }));
+  }, []);
+
+  const deleteTag = useCallback((id: string) => {
+    const now = new Date().toISOString();
+    setData((current) => ({
+      ...current,
+      tags: current.tags.filter((tag) => tag.id !== id),
+      entries: current.entries.map((entry) =>
+        entry.tagId === id ? { ...entry, tagId: null } : entry,
+      ),
+      updatedAt: now,
+    }));
+  }, []);
+
+  const openTagSheet = useCallback((tagId?: string) => {
+    setTagSheet({ visible: true, editingTagId: tagId });
+  }, []);
+
+  const closeTagSheet = useCallback(() => {
+    setTagSheet({ visible: false, editingTagId: undefined });
+  }, []);
+
   const setOpeningBalance = useCallback((amountMinor: number) => {
     const now = new Date().toISOString();
     setData((current) => ({
@@ -471,6 +553,7 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       entrySheet,
       trackSheetVisible: trackSheet.visible,
       editingTrackId: trackSheet.trackId,
+      tagSheetState: tagSheet,
       calculatorVisible,
       addEntry,
       updateEntry,
@@ -478,6 +561,11 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       addTrack,
       updateTrack,
       deleteTrack,
+      addTag,
+      updateTag,
+      deleteTag,
+      openTagSheet,
+      closeTagSheet,
       setOpeningBalance,
       clearSampleData,
       toggleSelected,
@@ -503,6 +591,7 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       syncStatus,
       entrySheet,
       trackSheet,
+      tagSheet,
       calculatorVisible,
       addEntry,
       updateEntry,
@@ -510,6 +599,11 @@ export function FlowProvider({ children }: { children: React.ReactNode }) {
       addTrack,
       updateTrack,
       deleteTrack,
+      addTag,
+      updateTag,
+      deleteTag,
+      openTagSheet,
+      closeTagSheet,
       setOpeningBalance,
       clearSampleData,
       toggleSelected,
