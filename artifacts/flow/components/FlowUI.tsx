@@ -379,6 +379,8 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
                 </Text>
               </View>
             ) : null}
+            </View>
+          <View style={styles.entrySubtitleRow}>
             {tag && tagColor ? (
               <View style={[styles.tagBadge, { backgroundColor: `${tagColor}18` }]}>
                 <View style={[styles.tagBadgeDot, { backgroundColor: tagColor }]} />
@@ -387,16 +389,16 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
                 </Text>
               </View>
             ) : null}
+            {entry.note ? (
+              <Text numberOfLines={1} style={[styles.entryNote, { color: colors.mutedForeground, flex: 1 }]}>
+                {entry.note}
+              </Text>
+            ) : !tag ? (
+              <Text style={[styles.entryNote, { color: colors.mutedForeground }]}>
+                {isIncome ? "Money in" : "Money out"}
+              </Text>
+            ) : null}
           </View>
-          {entry.note ? (
-            <Text numberOfLines={2} style={[styles.entryNote, { color: colors.mutedForeground }]}>
-              {entry.note}
-            </Text>
-          ) : (
-            <Text style={[styles.entryNote, { color: colors.mutedForeground }]}>
-              {tag ? tag.name : isIncome ? "Money in" : "Money out"}
-            </Text>
-          )}
         </View>
 
         <View style={styles.entryRight}>
@@ -408,10 +410,6 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
           >
             {moneyText(entry.amountMinor, entry.kind)}
           </Text>
-          <View style={styles.editActionIndicator}>
-            <Feather name="edit-2" size={11} color={colors.mutedForeground} />
-            <Text style={[styles.editActionText, { color: colors.mutedForeground }]}>Edit</Text>
-          </View>
         </View>
       </Pressable>
     </View>
@@ -616,6 +614,13 @@ const styles = StyleSheet.create({
   },
   tagBadgeText: { fontSize: 10, fontWeight: "700" },
   entryNote: { fontSize: 12, lineHeight: 16, marginTop: 2 },
+  entrySubtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 2,
+    flexWrap: "nowrap",
+  },
   entryRight: {
     alignItems: "flex-end",
     gap: 2,

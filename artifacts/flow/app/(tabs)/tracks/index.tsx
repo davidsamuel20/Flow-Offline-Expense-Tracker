@@ -58,7 +58,7 @@ export default function TracksScreen() {
                 }
                 style={({ pressed }) => [
                   styles.trackCard,
-                  { backgroundColor: colors.card, borderColor: colors.border },
+                  { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: tint, borderLeftWidth: 4 },
                   pressed && styles.pressed,
                 ]}
               >

@@ -6,6 +6,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,7 +17,7 @@ import { localDateString, useFlow } from "@/components/FlowContext";
 import type { PaymentTag } from "@/components/FlowContext";
 import { TAG_COLOR_OPTIONS, tagTintHex } from "@/constants/tagColors";
 import { useColors } from "@/hooks/useColors";
-import { formatMoney } from "@/components/FlowUI";
+import { formatMoney, dateLabel } from "@/components/FlowUI";
 
 export function FlowOverlays() {
   const { entrySheet, trackSheetVisible, calculatorVisible, tagSheetState } = useFlow();
@@ -219,7 +220,11 @@ function EntrySheet({ visible }: { visible: boolean }) {
             />
 
             <FieldLabel label="TYPE OF PAYMENT" />
-            <View style={styles.trackChoices}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tagChoiceScroll}
+            >
               {data.tags.map((tag) => {
                 const active = tag.id === tagId;
                 const tint = tagTintHex(tag.color);
@@ -271,7 +276,7 @@ function EntrySheet({ visible }: { visible: boolean }) {
               >
                 <Feather name="edit-2" size={13} color={colors.mutedForeground} />
               </Pressable>
-            </View>
+            </ScrollView>
 
             <FieldLabel label="TRACK" />
             {data.tracks.length > 0 ? (
@@ -377,6 +382,9 @@ function EntrySheet({ visible }: { visible: boolean }) {
                   placeholderTextColor={colors.mutedForeground}
                   style={[styles.input, { backgroundColor: colors.card, color: colors.foreground }]}
                 />
+                <Text style={[styles.dateHintLabel, { color: colors.mutedForeground }]}>
+                  {dateLabel(date)}
+                </Text>
               </View>
               <View style={styles.flexField}>
                 <FieldLabel label="NOTE  ·  OPTIONAL" />
@@ -961,6 +969,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   trackChoices: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 },
+  tagChoiceScroll: { flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 4 },
   trackChoice: { paddingHorizontal: 14, minHeight: 38, justifyContent: "center", borderRadius: 14 },
   trackChoiceText: { fontSize: 12, fontWeight: "600" },
   addTrackChoice: { width: 38, height: 38, borderWidth: 1, borderStyle: "dashed", borderRadius: 14, alignItems: "center", justifyContent: "center" },
@@ -969,6 +978,7 @@ const styles = StyleSheet.create({
   twoColumns: { flexDirection: "row", gap: 10 },
   flexField: { flex: 1, minWidth: 0 },
   dateLabelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  dateHintLabel: { fontSize: 10, fontWeight: "600", marginTop: 4, marginLeft: 2 },
   quickDateChips: { flexDirection: "row", gap: 5, marginTop: 4 },
   quickChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: "rgba(0,0,0,0.05)" },
   quickChipText: { fontSize: 10, fontWeight: "600" },
