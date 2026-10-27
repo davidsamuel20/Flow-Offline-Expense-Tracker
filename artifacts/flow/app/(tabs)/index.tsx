@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import {
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -22,8 +23,42 @@ export default function TodayScreen() {
   );
   const balance = data.openingBalanceMinor + netMovement;
   const now = new Date();
-  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const monthEntries = data.entries.filter((entry) => entry.date.startsWith(month));
+  const [activeDate, setActiveDate] = useState(() => new Date());
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const activeMonth = `${activeDate.getFullYear()}-${String(activeDate.getMonth() + 1).padStart(2, "0")}`;
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const isCurrentMonth = activeMonth === currentMonthKey;
+  const activeMonthName = activeDate.toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+  const activeMonthShort = activeDate.toLocaleDateString("en-IN", {
+    month: "short",
+  });
+
+  const shiftMonth = (delta: number) => {
+    setActiveDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  };
+
+  const resetToCurrentMonth = () => {
+    setActiveDate(new Date());
+    setShowMonthPicker(false);
+  };
+
+  const availableMonths = useMemo(() => {
+    const monthsSet = new Set<string>();
+    monthsSet.add(currentMonthKey);
+    for (const entry of data.entries) {
+      if (entry.date && entry.date.length >= 7) {
+        monthsSet.add(entry.date.slice(0, 7));
+      }
+    }
+    return Array.from(monthsSet).sort().reverse();
+  }, [data.entries, currentMonthKey]);
+
+  const monthEntries = data.entries.filter((entry) => entry.date.startsWith(activeMonth));
   const spent = monthEntries
     .filter((entry) => entry.kind === "expense")
     .reduce((sum, entry) => sum + entry.amountMinor, 0);
@@ -35,17 +70,17 @@ export default function TodayScreen() {
     day: "numeric",
     month: "long",
   });
-  const [searchQuery, setSearchQuery] = useState("");
 
   const visibleEntries = useMemo(() => {
-    if (!searchQuery.trim()) return data.entries;
+    const monthFiltered = data.entries.filter((entry) => entry.date.startsWith(activeMonth));
+    if (!searchQuery.trim()) return monthFiltered;
     const query = searchQuery.trim().toLowerCase();
-    return data.entries.filter(
+    return monthFiltered.filter(
       (entry) =>
         entry.title.toLowerCase().includes(query) ||
         (entry.note && entry.note.toLowerCase().includes(query)),
     );
-  }, [data.entries, searchQuery]);
+  }, [data.entries, activeMonth, searchQuery]);
 
   const confirmClearExamples = () => {
     Alert.alert(
@@ -89,7 +124,9 @@ export default function TodayScreen() {
               <Feather name="arrow-down-left" size={13} color={colors.white} />
             </View>
             <View>
-              <Text style={[styles.balanceMiniLabel, { color: colors.whiteMuted }]}>In this month</Text>
+              <Text style={[styles.balanceMiniLabel, { color: colors.whiteMuted }]}>
+                {isCurrentMonth ? "In this month" : `In ${activeMonthShort}`}
+              </Text>
               <Text style={[styles.balanceMiniValue, { color: colors.white }]}>{formatMoney(received)}</Text>
             </View>
           </View>
@@ -101,12 +138,131 @@ export default function TodayScreen() {
               <Feather name="arrow-up-right" size={13} color={colors.white} />
             </View>
             <View>
-              <Text style={[styles.balanceMiniLabel, { color: colors.whiteMuted }]}>Out this month</Text>
+              <Text style={[styles.balanceMiniLabel, { color: colors.whiteMuted }]}>
+                {isCurrentMonth ? "Out this month" : `Out ${activeMonthShort}`}
+              </Text>
               <Text style={[styles.balanceMiniValue, { color: colors.white }]}>{formatMoney(spent)}</Text>
             </View>
           </View>
         </View>
       </LinearGradient>
+
+      {/* Month-to-Month Filter Navigator */}
+      <View style={[styles.monthFilterBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Previous month"
+          onPress={() => shiftMonth(-1)}
+          style={({ pressed }) => [styles.monthNavArrow, pressed && styles.pressed]}
+        >
+          <Feather name="chevron-left" size={18} color={colors.primary} />
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Choose month"
+          onPress={() => setShowMonthPicker((prev) => !prev)}
+          style={({ pressed }) => [styles.monthCenterPill, pressed && styles.pressed]}
+        >
+          <Feather name="calendar" size={13} color={colors.primary} />
+          <Text style={[styles.monthLabelText, { color: colors.foreground }]}>
+            {activeMonthName}
+          </Text>
+          <Feather
+            name={showMonthPicker ? "chevron-up" : "chevron-down"}
+            size={13}
+            color={colors.mutedForeground}
+          />
+        </Pressable>
+
+        <View style={styles.monthRightGroup}>
+          {!isCurrentMonth ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Reset to current month"
+              onPress={resetToCurrentMonth}
+              style={[styles.currentChip, { backgroundColor: colors.secondary }]}
+            >
+              <Text style={[styles.currentChipText, { color: colors.primary }]}>This month</Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Next month"
+            onPress={() => shiftMonth(1)}
+            style={({ pressed }) => [styles.monthNavArrow, pressed && styles.pressed]}
+          >
+            <Feather name="chevron-right" size={18} color={colors.primary} />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Expandable Month Quick-Jump Carousel */}
+      {showMonthPicker ? (
+        <View style={[styles.monthPickerBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.monthPickerTitle, { color: colors.mutedForeground }]}>
+            JUMP TO MONTH
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.monthPillsScroll}
+          >
+            {availableMonths.map((m) => {
+              const [y, mo] = m.split("-").map(Number);
+              const label = new Date(y, mo - 1, 1).toLocaleDateString("en-IN", {
+                month: "short",
+                year: "numeric",
+              });
+              const isSelected = m === activeMonth;
+              const count = data.entries.filter((e) => e.date.startsWith(m)).length;
+              return (
+                <Pressable
+                  key={m}
+                  onPress={() => {
+                    setActiveDate(new Date(y, mo - 1, 1));
+                    setShowMonthPicker(false);
+                  }}
+                  style={[
+                    styles.monthOptionPill,
+                    {
+                      backgroundColor: isSelected ? colors.primary : colors.background,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.monthOptionText,
+                      { color: isSelected ? colors.white : colors.foreground },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                  {count > 0 ? (
+                    <View
+                      style={[
+                        styles.monthCountBadge,
+                        { backgroundColor: isSelected ? "rgba(255,255,255,0.25)" : colors.secondary },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.monthCountText,
+                          { color: isSelected ? colors.white : colors.primary },
+                        ]}
+                      >
+                        {count}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {/* Dismissible sample banner */}
       {data.sampleData ? (
@@ -132,7 +288,7 @@ export default function TodayScreen() {
       {/* Your latest lines section with ONE clear, prominent Add line action */}
       <View style={styles.latestSection}>
         <SectionHeading
-          title="Your latest lines"
+          title={isCurrentMonth ? "Your latest lines" : `Lines in ${activeMonthShort}`}
           trailing={
             <Pressable
               accessibilityRole="button"
@@ -170,8 +326,20 @@ export default function TodayScreen() {
 
         <EntryList
           entries={visibleEntries}
-          emptyTitle={searchQuery ? "No lines match" : undefined}
-          emptyText={searchQuery ? `Nothing found matching "${searchQuery}".` : undefined}
+          emptyTitle={
+            searchQuery
+              ? "No lines match"
+              : isCurrentMonth
+              ? "Nothing here yet"
+              : `No lines in ${activeMonthName}`
+          }
+          emptyText={
+            searchQuery
+              ? `Nothing found matching "${searchQuery}".`
+              : isCurrentMonth
+              ? "Add a line whenever money moves this month."
+              : `No entries were recorded for ${activeMonthName}.`
+          }
         />
       </View>
     </Screen>
@@ -201,6 +369,87 @@ const styles = StyleSheet.create({
   balanceMiniLabel: { fontSize: 10, fontWeight: "500" },
   balanceMiniValue: { fontSize: 13, fontWeight: "700", marginTop: 1 },
   balanceMiniSeparator: { width: 1, height: 26, marginHorizontal: 10 },
+  monthFilterBar: {
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+  },
+  monthNavArrow: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+  },
+  monthCenterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  monthLabelText: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  monthRightGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  currentChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  currentChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  monthPickerBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 10,
+    gap: 8,
+  },
+  monthPickerTitle: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+    marginLeft: 4,
+  },
+  monthPillsScroll: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  monthOptionPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  monthOptionText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  monthCountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  monthCountText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
   sampleBanner: {
     minHeight: 52,
     borderRadius: 14,

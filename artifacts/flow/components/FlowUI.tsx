@@ -47,6 +47,20 @@ export function dateLabel(dateString: string) {
   });
 }
 
+export function timeLabel(isoString?: string | null): string {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return "";
+
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const minutesFormatted = minutes < 10 ? `0${minutes}` : `${minutes}`;
+  return `${hours}:${minutesFormatted} ${ampm}`;
+}
+
 export function trackTint(track: FlowTrack | undefined, colors: ReturnType<typeof useColors>) {
   if (track?.color === "navy") return colors.primary;
   if (track?.color === "green") return colors.income;
@@ -261,7 +275,13 @@ export function EntryList({
 
   const groups = new Map<string, FlowEntry[]>();
   [...entries]
-    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
+    .sort((a, b) => {
+      const dateCmp = b.date.localeCompare(a.date);
+      if (dateCmp !== 0) return dateCmp;
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    })
     .forEach((entry) => {
       const current = groups.get(entry.date) ?? [];
       current.push(entry);
@@ -410,6 +430,11 @@ function EntryRow({ entry, last }: { entry: FlowEntry; last: boolean }) {
           >
             {moneyText(entry.amountMinor, entry.kind)}
           </Text>
+          {entry.createdAt ? (
+            <Text style={[styles.entryTime, { color: colors.mutedForeground }]}>
+              {timeLabel(entry.createdAt)}
+            </Text>
+          ) : null}
         </View>
       </Pressable>
     </View>
@@ -626,6 +651,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   entryAmount: { fontSize: 14, fontWeight: "700" },
+  entryTime: {
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+    marginTop: 2,
+    textAlign: "right",
+  },
   editActionIndicator: {
     flexDirection: "row",
     alignItems: "center",

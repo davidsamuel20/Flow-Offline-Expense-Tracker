@@ -18,7 +18,7 @@ import { localDateString, useFlow } from "@/components/FlowContext";
 import type { PaymentTag } from "@/components/FlowContext";
 import { TAG_COLOR_OPTIONS, tagTintHex } from "@/constants/tagColors";
 import { useColors } from "@/hooks/useColors";
-import { formatMoney, dateLabel } from "@/components/FlowUI";
+import { formatMoney, dateLabel, timeLabel } from "@/components/FlowUI";
 
 export function FlowOverlays() {
   const { entrySheet, trackSheetVisible, calculatorVisible, tagSheetState } = useFlow();
@@ -399,6 +399,15 @@ function EntrySheet({ visible }: { visible: boolean }) {
                 />
               </View>
             </View>
+
+            {entrySheet.entryId && existing?.createdAt ? (
+              <View style={[styles.timeRecordedRow, { backgroundColor: colors.card }]}>
+                <Feather name="clock" size={13} color={colors.primary} />
+                <Text style={[styles.timeRecordedText, { color: colors.mutedForeground }]}>
+                  Recorded at {timeLabel(existing.createdAt)}
+                </Text>
+              </View>
+            ) : null}
 
             {error ? <Text style={[styles.errorText, { color: colors.expense }]}>{error}</Text> : null}
             <Pressable
@@ -1003,6 +1012,20 @@ const styles = StyleSheet.create({
   quickDateChips: { flexDirection: "row", gap: 5, marginTop: 4 },
   quickChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: "rgba(0,0,0,0.05)" },
   quickChipText: { fontSize: 10, fontWeight: "600" },
+  timeRecordedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginTop: -2,
+    marginBottom: 4,
+  },
+  timeRecordedText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
   errorText: { fontSize: 12, marginTop: 4, fontWeight: "600" },
   primaryButton: {
     minHeight: 52,

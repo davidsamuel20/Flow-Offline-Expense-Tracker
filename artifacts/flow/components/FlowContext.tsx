@@ -125,17 +125,20 @@ export function localDateString(date = new Date()) {
 }
 
 function createStarterState(): LocalFlowData {
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const fundTime = new Date(now.getTime() - 45 * 60 * 1000).toISOString();
+  const milkTime = new Date(now.getTime() - 150 * 60 * 1000).toISOString();
   const everydayId = makeId("track");
   const collegeId = makeId("track");
   return {
     installationId: `flow_${makeId("install")}`,
     openingBalanceMinor: 0,
     tracks: [
-      { id: everydayId, name: "Everyday", color: "sky", createdAt: now, updatedAt: now },
-      { id: collegeId, name: "College", color: "navy", createdAt: now, updatedAt: now },
+      { id: everydayId, name: "Everyday", color: "sky", createdAt: nowIso, updatedAt: nowIso },
+      { id: collegeId, name: "College", color: "navy", createdAt: nowIso, updatedAt: nowIso },
     ],
-    tags: DEFAULT_TAGS.map((t) => ({ ...t, createdAt: now, updatedAt: now })),
+    tags: DEFAULT_TAGS.map((t) => ({ ...t, createdAt: nowIso, updatedAt: nowIso })),
     entries: [
       {
         id: makeId("entry"),
@@ -146,8 +149,8 @@ function createStarterState(): LocalFlowData {
         date: localDateString(),
         note: null,
         tagId: "tag_default",
-        createdAt: now,
-        updatedAt: now,
+        createdAt: milkTime,
+        updatedAt: milkTime,
       },
       {
         id: makeId("entry"),
@@ -158,11 +161,11 @@ function createStarterState(): LocalFlowData {
         date: localDateString(),
         note: "Money in",
         tagId: "tag_imp",
-        createdAt: now,
-        updatedAt: now,
+        createdAt: fundTime,
+        updatedAt: fundTime,
       },
     ],
-    updatedAt: now,
+    updatedAt: nowIso,
     lastSyncedAt: null,
     sampleData: true,
     selectedIds: [],
